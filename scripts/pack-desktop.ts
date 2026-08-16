@@ -12,7 +12,16 @@ const prepareOnly = process.argv.includes('--prepare-only')
 
 function run(command: string, args: string[], cwd = repo, env: Record<string, string> = {}): void {
   const result = spawnSync(command, args, { cwd, stdio: 'inherit', env: { ...process.env, ...env } })
-  if (result.status !== 0) throw new Error(`pack-desktop: ${command} ${args.join(' ')} failed (${String(result.status)})`)
+  if (result.status === 0) return
+  // Surfaces the failure mode a Windows-only silent crash otherwise hides: a
+  // non-zero status (normal exit) vs `status === null` from an ENOENT spawn or a
+  // signal/abort-killed child. `result.error` carries the Node spawn error.
+  const detail = [
+    result.error ? `error=${result.error.message}` : undefined,
+    result.signal ? `signal=${result.signal}` : undefined,
+    result.status === null && !result.error && !result.signal ? 'no-status(no-error,no-signal)' : undefined,
+  ].filter(Boolean).join(' ')
+  throw new Error(`pack-desktop: ${command} ${args.join(' ')} failed (${String(result.status)})${detail ? `; ${detail}` : ''}`)
 }
 
 /** Remove and recreate a directory so it starts empty. */
