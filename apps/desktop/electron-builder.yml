@@ -2,6 +2,12 @@ appId: ai.deepseek.harness
 productName: DeepSeek Harness
 directories:
   output: dist
+# The only Electron-ABI native dependency is node-pty, and it lives in
+# resources/host, rebuilt for the Free Electron ABI by pack-desktop.ts step 4
+# BEFORE electron-builder runs. electron-builder's own npmRebuild would
+# re-rebuild it with a bundled node-gyp that cannot find Visual Studio 2026 on
+# current windows-latest, so keep that automatic pass off.
+npmRebuild: false
 files:
   - out/main.js
   - out/main.js.map
