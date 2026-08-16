@@ -10,11 +10,18 @@ const appDir = join(repo, 'apps', 'desktop')
 const resources = join(appDir, 'resources')
 const prepareOnly = process.argv.includes('--prepare-only')
 // Node's spawnSync does not resolve a bare `pnpm` to the `.cmd` shim on Windows
-// (returns ENOENT); the SDK precedent spawns pnpm.cmd there. Use the same shim.
+// (ENOENT), and spawning the `.cmd` directly needs a shell (EINVAL). Route through
+// cmd.exe on win32 exactly as the SDK precedent's pnpmBin() implies; our argument
+// paths carry no spaces, so shell-word quoting stays lossless.
 const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
 
 function run(command: string, args: string[], cwd = repo, env: Record<string, string> = {}): void {
-  const result = spawnSync(command, args, { cwd, stdio: 'inherit', env: { ...process.env, ...env } })
+  const result = spawnSync(command, args, {
+    cwd,
+    stdio: 'inherit',
+    shell: process.platform === 'win32',
+    env: { ...process.env, ...env },
+  })
   if (result.status === 0) return
   // Surfaces the failure mode a Windows-only silent crash otherwise hides: a
   // non-zero status (normal exit) vs `status === null` from an ENOENT spawn or a
