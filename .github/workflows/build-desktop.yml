@@ -1,0 +1,77 @@
+name: Build desktop
+
+# Unsigned desktop artifacts for mac (arm64 + x64) and win x64. The desktop
+# shell is assembled by scripts/pack-desktop.ts over the packaged host closure;
+# see docs/subsystems/desktop-app.md (planned) and the desktop layout plan
+# (docs/superpowers/plans/2026-08-15-desktop-app.md). Artifacts are unsigned;
+# signing/notarization/auto-update are deferred follow-up work.
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    paths:
+      - "apps/desktop/**"
+      - "packages/bundle/desktop-app/**"
+      - "packages/client/connection/**"
+      - "packages/client/modules/**"
+      - "packages/boot/app-boot/**"
+      - "apps/web/vite.config.ts"
+      - "scripts/pack-desktop.ts"
+      - ".github/workflows/build-desktop.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: build-desktop-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PRIMARY_NODE_VERSION: '24'
+
+jobs:
+  build:
+    name: ${{ matrix.os }}-${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-latest, arch: arm64 }
+          - { os: macos-latest, arch: x64 }
+          - { os: windows-latest, arch: x64 }
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v4
+        with:
+          dest: ${{ runner.temp }}/setup-pnpm
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.PRIMARY_NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install (immutable)
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm run build
+
+      - name: Pack desktop artifacts
+        env:
+          DSH_DESKTOP_ARCH: ${{ matrix.arch }}
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: pnpm run pack:desktop
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: DeepSeek-Harness-${{ matrix.os }}-${{ matrix.arch }}
+          path: |
+            apps/desktop/dist/*.dmg
+            apps/desktop/dist/*.zip
+            apps/desktop/dist/*.exe
+          if-no-files-found: error
+          retention-days: 7
