@@ -100,6 +100,13 @@
 
     # ── layer 2: transport/service ──────────────────────────────────────────────
 
+    # Dual-face: the node half scans this tree, composes window.__DSH_BOOT__,
+    # and serves /plugins/<id>/client.js; the browser half is the module table
+    # the shell kernel constructs before cordis exists (adopted as a plugin
+    # entry by the kernel, never fetched).
+    - id: modules
+      name: '@deepseek-ai/dsh-client-modules'
+
     # Owns both ends of the desktop transport: node half provides the /api
     # dispatch face (ctx.connection.fetch) the IPC pump consumes; browser
     # half is the DesktopApiClient carrier selected by __DSH_DESKTOP__.
