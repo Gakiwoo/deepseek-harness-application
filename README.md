@@ -6,8 +6,6 @@ A desktop application built on [DeepSeek Harness](https://github.com/deepseek-ai
 
 Under the hood, everything is still a plugin on [Cordis](https://github.com/cordiverse/cordis). The desktop shell only changes the carrier: the host process and the renderer share one Cordis instance, and an IPC fetch bridge replaces HTTP, so no server process and no LAN socket are left behind.
 
-![DeepSeek Harness Desktop home screen (macOS dmg)](assets/desktop-home.jpg)
-
 ## Highlights
 
 - **Zero-configuration desktop window** — the app bundles the full host runtime, so it opens ready to use.

@@ -6,8 +6,6 @@
 
 底层依旧是运行在 [Cordis](https://github.com/cordiverse/cordis) 上的**一切皆插件**架构。桌面壳只改变载体：宿主进程与渲染进程共享同一个 Cordis 实例，IPC fetch 桥取代了 HTTP，因此不残留任何服务器进程或局域网端口。
 
-![DeepSeek Harness 桌面版首页（macOS dmg）](assets/desktop-home.jpg)
-
 ## 亮点
 
 - **零配置桌面窗口** —— 应用自带完整的宿主运行时，打开即可使用。
