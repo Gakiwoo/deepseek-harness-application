@@ -54,6 +54,14 @@ jobs:
           node-version: ${{ env.PRIMARY_NODE_VERSION }}
           cache: pnpm
 
+      # electron-rebuild drives node-gyp 9.x to rebuild node-pty against the
+      # Electron ABI; that node-gyp still imports the stdlib `distutils`, removed
+      # in Python 3.12. Pin a 3.11 toolchain (distutils shipped but deprecated) so
+      # a fresh runner Python (3.12+ without distutils) never breaks the rebuild.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Install (immutable)
         run: pnpm install --frozen-lockfile
 
