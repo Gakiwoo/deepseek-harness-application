@@ -1,0 +1,28 @@
+appId: ai.deepseek.harness
+productName: DeepSeek Harness
+directories:
+  output: dist
+files:
+  - out/main.js
+  - out/main.js.map
+  - out/preload.cjs
+  - package.json
+extraResources:
+  - from: resources
+    to: .
+    filter:
+      - "**/*"
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+    - target: zip
+  artifactName: DeepSeek-Harness-${version}-mac-${arch}.${ext}
+win:
+  target:
+    - nsis
+    - zip
+  artifactName: DeepSeek-Harness-${version}-win-x64.${ext}
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true

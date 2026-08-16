@@ -1,0 +1,25 @@
+{
+  "name": "@deepseek-ai/dsh-desktop",
+  "description": "DeepSeek Harness desktop shell (Electron): window, dsh:// protocol, IPC fetch pump over the packaged host closure",
+  "version": "0.1.0-rc.5",
+  "private": true,
+  "license": "MIT",
+  "main": "out/main.js",
+  "scripts": {
+    "build:shell": "esbuild src/main.ts --bundle --platform=node --format=cjs --outfile=out/main.js --external:electron --sourcemap && esbuild preload.ts --bundle --platform=node --format=cjs --outfile=out/preload.cjs",
+    "start": "electron .",
+    "pack": "tsx ../../scripts/pack-desktop.ts"
+  },
+  "devDependencies": {
+    "electron": "^38.0.0",
+    "electron-builder": "^25.0.0",
+    "esbuild": "^0.24.0",
+    "tsx": "^4.22.4",
+    "electron-rebuild": "^3.2.9"
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh-client-connection": "workspace:^",
+    "@deepseek-ai/dsh-desktop-app": "workspace:^",
+    "@deepseek-ai/dsh-client-modules": "workspace:^"
+  }
+}
