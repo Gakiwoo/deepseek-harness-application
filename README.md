@@ -3,7 +3,8 @@
 English | [中文](README.zh.md)
 
 <p align="center">
-  <img src="<img width="876" height="623" alt="deepseek harness" src="https://github.com/user-attachments/assets/d2fc5471-183a-4ab3-b897-6439f75383ac" />" alt="DeepSeek Harness home screen" width="100%">
+ <img width="876" height="623" alt="deepseek harness" src="https://github.com/user-attachments/assets/dca1f787-ee51-47b4-bf06-74bbffd3f655" />
+
 </p>
 
 A desktop application built on [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`), the open-source plugin-based agent harness. It wraps the service startup, runtime management, and the browser surface into an out-of-the-box Electron window — you need neither Node.js nor a shell command to run the agent.
