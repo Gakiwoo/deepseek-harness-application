@@ -68,6 +68,14 @@ jobs:
       - name: Build all packages
         run: pnpm run build
 
+      # node-gyp's VS discovery cannot parse VS18/2026 on current windows-latest
+      # ("unknown version undefined"), so electron-rebuild cannot rebuild node-pty.
+      # Sourcing the MSVC dev env sets VCINSTALLDIR; node-gyp then takes the
+      # VS Command Prompt path instead of the broken vswhere probe.
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
       - name: Pack desktop artifacts
         env:
           DSH_DESKTOP_ARCH: ${{ matrix.arch }}
