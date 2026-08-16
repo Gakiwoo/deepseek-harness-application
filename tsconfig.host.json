@@ -104,7 +104,13 @@
     "packages/client/tsdown.client.ts",
     "scripts/client-bundle-css.spec.ts",
     "packages/typert/generator/tests/fixtures/**",
-    "scripts/client-bundle-purity.spec.ts"
+    "scripts/client-bundle-purity.spec.ts",
+    // Cross-face desktop boot snapshot: it boots the host tree and drives the
+    // client carrier (DesktopApiClient) over the IPC wire, so it imports
+    // packages/client/*/src that the host program excludes. Like apps/desktop
+    // (outside both aggregates), it executes under vitest via tsconfigPaths
+    // and is not type-checked by either aggregate.
+    "packages/bundle/desktop-app/tests/desktop-boot.snapshot.ts"
   ],
   "references": [
     { "path": "./vendor/cosmokit" },
