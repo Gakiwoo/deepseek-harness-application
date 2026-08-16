@@ -28,6 +28,12 @@ overrides:
   '@deepseek-ai/cosmokit': 'link:vendor/cosmokit'
   '@deepseek-ai/schemastery': 'link:vendor/schemastery'
 
+  # electron-rebuild 3.2.9 bundles node-gyp 9.x, which cannot recognize Visual
+  # Studio 2026 (run on current windows-latest) and fails with "unknown version
+  # undefined". VS 2026 support landed in node-gyp 12, so lift the copy that the
+  # desktop pack uses to rebuild node-pty against the Electron ABI.
+  'electron-rebuild>node-gyp': '^12.0.0'
+
 peerDependencyRules:
   allowedVersions:
     typescript: '>=5 <7'
