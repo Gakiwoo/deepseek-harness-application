@@ -9,8 +9,8 @@
 import {
   DSH_FETCH_ABORT, DSH_FETCH_CHUNK, DSH_FETCH_END, DSH_FETCH_ERROR,
   DSH_FETCH_REQUEST, DSH_FETCH_RESPONSE,
-} from '@deepseek-ai/dsh-client-connection/client/desktop-bridge'
-import type { DesktopFetchWireRequest } from '@deepseek-ai/dsh-client-connection/client/desktop-bridge'
+} from '@deepseek-ai/dsh-client-connection/client'
+import type { DesktopFetchWireRequest } from '@deepseek-ai/dsh-client-connection/client'
 
 /** Injectable ipcMain face (tests substitute an emitter map). */
 export interface IpcInvokeRegistrar {

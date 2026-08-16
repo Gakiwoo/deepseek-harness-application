@@ -34,7 +34,12 @@ export class DesktopApiClient extends AbstractApiClient {
     ]
   }
 
-  /** Public transport face for the generic RPC caller (same fetch shape as globalThis.fetch). */
+  /**
+   * Public transport face for the generic RPC caller (same fetch shape as globalThis.fetch).
+   * @param input - target URL.
+   * @param init - fetch options (method, headers, body, signal).
+   * @returns the streamed response once the bridge head arrives.
+   */
   transport(input: URL, init?: RequestInit): Promise<Response> {
     return this.doFetch(input, init)
   }

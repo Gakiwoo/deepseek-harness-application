@@ -5,11 +5,11 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import { bootDesktopHost } from '../src/host-boot.ts'
-import { DesktopApiClient } from '@deepseek-ai/dsh-client-connection/client/desktop-api-client'
+import { DesktopApiClient } from '@deepseek-ai/dsh-client-connection/client'
 import type {
   DesktopFetchBridge, DesktopFetchWireChunk, DesktopFetchWireEnd,
   DesktopFetchWireError, DesktopFetchWireRequest, DesktopFetchWireResponse,
-} from '@deepseek-ai/dsh-client-connection/client/desktop-bridge'
+} from '@deepseek-ai/dsh-client-connection/client'
 
 const home = mkdtempSync(join(tmpdir(), 'dsh-desktop-snap-'))
 afterAll(() => { rmSync(home, { recursive: true, force: true }) })

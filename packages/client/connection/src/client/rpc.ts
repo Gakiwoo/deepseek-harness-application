@@ -48,7 +48,10 @@ export function createConnectionRpc(
   }
 }
 
-/** The browser-backed variant over the page's global fetch. */
+/**
+ * The browser-backed variant over the page's global fetch.
+ * @returns the connection RPC caller backed by `globalThis.fetch`.
+ */
 export function createWebConnectionRpc(): ClientConnectionRpc {
   return createConnectionRpc((input, init) => globalThis.fetch(input, init))
 }

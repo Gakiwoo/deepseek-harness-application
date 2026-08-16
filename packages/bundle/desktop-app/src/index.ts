@@ -39,13 +39,27 @@ export const Config: z<DesktopAppConfig> = z.object({
 
 /** The Electron main process's consumption face over the settled desktop tree. */
 export interface DesktopRuntime {
-  /** /api dispatch (TypertGateway interceptor + apiproxy fallback) — the IPC pump's carrier. */
+  /**
+   * /api dispatch (TypertGateway interceptor + apiproxy fallback) — the IPC pump's carrier.
+   * @param request - the fetch request to dispatch against the /api face.
+   * @returns the response from the host dispatch.
+   */
   fetch(request: Request): Promise<Response>
-  /** Current composed `window.__DSH_BOOT__` graph. */
+  /**
+   * Current composed `window.__DSH_BOOT__` graph.
+   * @returns the composed client module graph.
+   */
   graph(): WebBootGraph
-  /** Absolute path of one plugin's built client bundle. */
+  /**
+   * Absolute path of one plugin's built client bundle.
+   * @param id - the client module package id.
+   * @returns the resolved bundle path, or undefined when the id is not in the graph.
+   */
   clientPath(id: string): string | undefined
-  /** Absolute path of the frontend index.html this surface serves. */
+  /**
+   * Absolute path of the frontend index.html this surface serves.
+   * @returns the frontend index path.
+   */
   frontendIndex(): string
 }
 

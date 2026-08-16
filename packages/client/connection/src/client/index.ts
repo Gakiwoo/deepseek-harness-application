@@ -43,6 +43,19 @@ export {
 export type { ConnectionConfig, ConnectionSinks, ConnectionState }
 export type { ClientConnectionRpc } from '../rpc.ts'
 
+// Desktop IPC wire contract (channels, payload shapes, bridge detection) and
+// the IPC carrier re-exposed through the same client entry the web carrier uses,
+// so the Electron preload and host pump import one public face.
+export {
+  DSH_FETCH_ABORT, DSH_FETCH_CHUNK, DSH_FETCH_END, DSH_FETCH_ERROR,
+  DSH_FETCH_REQUEST, DSH_FETCH_RESPONSE, readDesktopBridge,
+} from './desktop-bridge.ts'
+export type {
+  DesktopFetchBridge, DesktopFetchWireChunk, DesktopFetchWireEnd,
+  DesktopFetchWireError, DesktopFetchWireRequest, DesktopFetchWireResponse,
+} from './desktop-bridge.ts'
+export { DesktopApiClient } from './desktop-api-client.ts'
+
 /** Observable Host description published by each completed connection handshake. */
 export interface HostDescriptionSource {
   /** Latest connected-generation description; absent before connect and while reconnecting. */

@@ -4,7 +4,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type {
   DesktopFetchWireChunk, DesktopFetchWireEnd, DesktopFetchWireError,
   DesktopFetchWireRequest, DesktopFetchWireResponse,
-} from '@deepseek-ai/dsh-client-connection/client/desktop-bridge'
+} from '@deepseek-ai/dsh-client-connection/client'
 
 type Listener<T> = (message: T) => void
 
