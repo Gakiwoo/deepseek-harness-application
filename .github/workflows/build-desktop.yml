@@ -72,6 +72,7 @@ jobs:
         env:
           DSH_DESKTOP_ARCH: ${{ matrix.arch }}
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          DEBUG: "electron-rebuild"
         run: pnpm run pack:desktop
 
       - uses: actions/upload-artifact@v7
