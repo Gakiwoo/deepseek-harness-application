@@ -50,10 +50,10 @@ describe('DesktopApiClient', () => {
     const client = new DesktopApiClient(fake.bridge)
     const pending = client.host.describe({})
     await vi.waitFor(() => { if (fake.requests.length === 0) throw new Error('no request') })
-    const wire = fake.requests[0]
+    const wire = fake.requests[0]!
     expect(wire.method).toBe('POST')
     expect(wire.url).toContain('/api/host.describe')
-    const envelope = JSON.parse(wire.body ?? '') as { type: string; method: string }
+    const envelope = JSON.parse(wire.body ?? '') as { type: string; method: string; rpcId: string }
     expect(envelope.type).toBe('client-request')
     expect(envelope.method).toBe('host.describe')
     fake.respond({ id: wire.id, status: 200, headers: { 'content-type': 'application/json' } })
@@ -71,7 +71,7 @@ describe('DesktopApiClient', () => {
     const client = new DesktopApiClient(fake.bridge)
     const pending = client.transport(new URL('http://dsh.internal/api/events.mux'))
     await vi.waitFor(() => { if (fake.requests.length === 0) throw new Error('no request') })
-    const wire = fake.requests[0]
+    const wire = fake.requests[0]!
     fake.respond({ id: wire.id, status: 200, headers: { 'content-type': 'text/event-stream' } })
     fake.chunk({ id: wire.id, data: encoder.encode('data: a\n\n') })
     fake.chunk({ id: wire.id, data: encoder.encode('data: b\n\n') })
@@ -93,7 +93,7 @@ describe('DesktopApiClient', () => {
       .catch(() => undefined)
     await vi.waitFor(() => { if (fake.requests.length === 0) throw new Error('no request') })
     controller.abort()
-    expect(fake.aborts).toEqual([fake.requests[0].id])
+    expect(fake.aborts).toEqual([fake.requests[0]!.id])
     client.dispose()
   })
 
@@ -102,7 +102,7 @@ describe('DesktopApiClient', () => {
     const client = new DesktopApiClient(fake.bridge)
     const pending = client.transport(new URL('http://dsh.internal/api/x'))
     await vi.waitFor(() => { if (fake.requests.length === 0) throw new Error('no request') })
-    fake.fail({ id: fake.requests[0].id, message: 'boom' })
+    fake.fail({ id: fake.requests[0]!.id, message: 'boom' })
     await expect(pending).rejects.toThrow('boom')
     client.dispose()
   })
@@ -112,7 +112,7 @@ describe('DesktopApiClient', () => {
     const client = new DesktopApiClient(fake.bridge)
     const pending = client.transport(new URL('http://dsh.internal/api/events.mux'))
     await vi.waitFor(() => { if (fake.requests.length === 0) throw new Error('no request') })
-    const wire = fake.requests[0]
+    const wire = fake.requests[0]!
     fake.respond({ id: wire.id, status: 200, headers: {} })
     const response = await pending
     client.dispose()

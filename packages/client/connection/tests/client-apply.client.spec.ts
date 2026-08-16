@@ -10,7 +10,6 @@ import { RpcId } from '../src/client/api.ts'
 import { FixtureApiClient } from '../src/client/fixture.ts'
 import { WebApiClient } from '../src/client/web-api-client.ts'
 import { DesktopApiClient } from '../src/client/desktop-api-client.ts'
-import { readDesktopBridge } from '../src/client/desktop-bridge.ts'
 
 type Win = { location?: { hostname: string; search: string; origin?: string } }
 type WebSocketGlobal = { WebSocket?: typeof WebSocket }
@@ -436,7 +435,7 @@ describe('connection client apply (desktop)', () => {
       await vi.waitFor(() => { if (requests.length === 0) throw new Error('no bridge request') })
       expect(globalThis.fetch).not.toHaveBeenCalled()
       // Use the wire.id (the bridge's internal request id, not the rpcId in the body)
-      const wireId = requests[0].id
+      const wireId = requests[0]!.id
       for (const listener of errorListeners) listener({ id: wireId, message: 'no responder' })
       await expect(pending).rejects.toThrow('no responder')
     } finally {

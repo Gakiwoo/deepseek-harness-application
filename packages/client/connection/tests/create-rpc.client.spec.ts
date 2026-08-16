@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { createConnectionRpc, createWebConnectionRpc } from '../src/client/rpc.ts'
 
 function okFetch(body: unknown): (input: URL, init?: RequestInit) => Promise<Response> {
-  return async (input, init) => {
+  return async (_input, init) => {
     expect(init?.method).toBe('POST')
     const sent = JSON.parse(String(init?.body)) as { rpcId: string; method: string }
     return new Response(JSON.stringify({ type: 'server-response', rpcId: sent.rpcId, result: { ok: true, value: body } }), {

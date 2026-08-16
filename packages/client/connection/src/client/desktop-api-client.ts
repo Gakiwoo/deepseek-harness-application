@@ -3,7 +3,6 @@
 import { AbstractApiClient } from '@deepseek-ai/dsh-host-apiproxy/client'
 import type {
   DesktopFetchBridge, DesktopFetchWireRequest, DesktopFetchWireResponse,
-  DesktopFetchWireChunk, DesktopFetchWireEnd, DesktopFetchWireError,
 } from './desktop-bridge.ts'
 
 /** One in-flight fetch: downstream listeners route by id into this state. */
