@@ -39,8 +39,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # TEMP(diagnostics): contract the matrix to Windows while rooting out
-          # the legacy-deploy crash; restore the mac legs once Windows is green.
+          - { os: macos-latest, arch: arm64 }
+          - { os: macos-latest, arch: x64 }
           - { os: windows-latest, arch: x64 }
     steps:
       - uses: actions/checkout@v6
@@ -80,7 +80,6 @@ jobs:
         env:
           DSH_DESKTOP_ARCH: ${{ matrix.arch }}
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
-          DEBUG: "electron-rebuild"
         run: pnpm run pack:desktop
 
       - uses: actions/upload-artifact@v7
