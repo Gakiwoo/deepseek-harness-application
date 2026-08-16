@@ -9,6 +9,9 @@ const repo = resolve(import.meta.dirname, '..')
 const appDir = join(repo, 'apps', 'desktop')
 const resources = join(appDir, 'resources')
 const prepareOnly = process.argv.includes('--prepare-only')
+// Node's spawnSync does not resolve a bare `pnpm` to the `.cmd` shim on Windows
+// (returns ENOENT); the SDK precedent spawns pnpm.cmd there. Use the same shim.
+const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
 
 function run(command: string, args: string[], cwd = repo, env: Record<string, string> = {}): void {
   const result = spawnSync(command, args, { cwd, stdio: 'inherit', env: { ...process.env, ...env } })
@@ -36,26 +39,26 @@ function main(): void {
   // legacy hoisted layout, prod only, auto-install-peers off so the flat closure stays
   // one Cordis instance.
   emptyDir(join(resources, 'host'))
-  run('pnpm', ['--filter', '@deepseek-ai/dsh-desktop-app', 'deploy', '--legacy', '--prod',
+  run(pnpm, ['--filter', '@deepseek-ai/dsh-desktop-app', 'deploy', '--legacy', '--prod',
     '--config.node-linker=hoisted', '--config.auto-install-peers=false', '--config.link-workspace-packages=true',
     join(resources, 'host')])
 
   // 2. frontend dist: desktop-mode web build → resources/frontend.
-  run('pnpm', ['--filter', '@deepseek-ai/dsh-web-frontend', 'run', 'build:desktop'])
+  run(pnpm, ['--filter', '@deepseek-ai/dsh-web-frontend', 'run', 'build:desktop'])
   emptyDir(join(resources, 'frontend'))
   cpSync(join(repo, 'apps', 'web', 'dist'), join(resources, 'frontend'), { recursive: true })
 
   // 3. shell bundles.
-  run('pnpm', ['--filter', '@deepseek-ai/dsh-desktop', 'run', 'build:shell'])
+  run(pnpm, ['--filter', '@deepseek-ai/dsh-desktop', 'run', 'build:shell'])
 
   if (prepareOnly) return
 
   // 4. native rebuild: node-pty against the Electron ABI (mac -spawn-helper sibling ships with the package).
-  run('pnpm', ['--filter', '@deepseek-ai/dsh-desktop', 'exec', 'electron-rebuild', '-f', '--only', 'node-pty', '--module-dir', join(resources, 'host')])
+  run(pnpm, ['--filter', '@deepseek-ai/dsh-desktop', 'exec', 'electron-rebuild', '-f', '--only', 'node-pty', '--module-dir', join(resources, 'host')])
 
   // 5. electron-builder (never publish from local).
   const arch = process.env.DSH_DESKTOP_ARCH ?? process.arch
-  run('pnpm', ['--filter', '@deepseek-ai/dsh-desktop', 'exec', 'electron-builder', '--publish', 'never', `--${arch}`], appDir, {
+  run(pnpm, ['--filter', '@deepseek-ai/dsh-desktop', 'exec', 'electron-builder', '--publish', 'never', `--${arch}`], appDir, {
     CSC_IDENTITY_AUTO_DISCOVERY: 'false',
   })
 }

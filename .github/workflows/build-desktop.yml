@@ -39,8 +39,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: macos-latest, arch: arm64 }
-          - { os: macos-latest, arch: x64 }
+          # TEMP(diagnostics): contract the matrix to Windows while rooting out
+          # the legacy-deploy crash; restore the mac legs once Windows is green.
           - { os: windows-latest, arch: x64 }
     steps:
       - uses: actions/checkout@v6
