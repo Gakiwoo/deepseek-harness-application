@@ -2,9 +2,13 @@ name: Build desktop
 
 # Unsigned desktop artifacts for mac (arm64 + x64) and win x64. The desktop
 # shell is assembled by scripts/pack-desktop.ts over the packaged host closure;
-# see docs/subsystems/desktop-app.md (planned) and the desktop layout plan
+# see docs/subsystems/desktop-app.md and the desktop layout plan
 # (docs/superpowers/plans/2026-08-15-desktop-app.md). Artifacts are unsigned;
 # signing/notarization/auto-update are deferred follow-up work.
+#
+# Manual run: build all three platform artifacts, then (only when a release
+# tag is supplied in workflow_dispatch.inputs.release-tag) download every
+# artifact and publish them to a GitHub Release at that tag.
 on:
   push:
     branches: [main, master]
@@ -19,6 +23,15 @@ on:
       - "scripts/pack-desktop.ts"
       - ".github/workflows/build-desktop.yml"
   workflow_dispatch:
+    inputs:
+      release-tag:
+        description: "Git tag to publish the desktop artifacts to (e.g. v0.1.0). Empty = build only, no release."
+        required: false
+        default: ""
+      prerelease:
+        description: "Mark the release as a prerelease."
+        type: boolean
+        default: true
 
 concurrency:
   group: build-desktop-${{ github.workflow }}-${{ github.ref }}
@@ -91,3 +104,44 @@ jobs:
             apps/desktop/dist/*.exe
           if-no-files-found: error
           retention-days: 7
+
+  # Publish every build leg's artifacts to a GitHub Release at the tag given
+  # in workflow_dispatch.inputs.release-tag. Runs only on a manual dispatch
+  # that supplied a tag; the push/PR build legs never publish on their own.
+  release:
+    name: Publish release ${{ github.event.inputs.release-tag }}
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.release-tag != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          path: artifacts
+          pattern: DeepSeek-Harness-*
+          merge-multiple: true
+
+      # The release-tag may not exist yet (a manual dispatch is the natural way
+      # to publish a fresh version). softprops/action-gh-release creates the tag
+      # when it is absent, anchored to the workflow run's commit.
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.release-tag }}
+          target_commitish: ${{ github.sha }}
+          name: DeepSeek Harness ${{ github.event.inputs.release-tag }}
+          body: |
+            Unsigned desktop builds of DeepSeek Harness.
+
+            - macOS arm64: dmg, zip
+            - macOS x64: dmg, zip
+            - Windows x64: NSIS installer, zip
+
+            Note: artifacts are unsigned. On macOS, Gatekeeper requires
+            right-click → Open (or open once after moving to Applications);
+            on Windows, SmartScreen shows "Windows protected your PC" — choose
+            *More info* → *Run anyway*.
+          files: artifacts/**
+          prerelease: ${{ github.event.inputs.prerelease }}
+          fail_on_unmatched_files: true
