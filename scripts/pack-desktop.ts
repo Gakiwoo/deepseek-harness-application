@@ -1,6 +1,6 @@
 /** Pack the desktop app: host closure deploy → frontend dist → shell build → node-pty rebuild → electron-builder. */
 
-import { cpSync, mkdirSync, rmSync } from 'node:fs'
+import { cpSync, lstatSync, mkdirSync, readdirSync, realpathSync, rmSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import process from 'node:process'
@@ -40,6 +40,38 @@ function emptyDir(directory: string): void {
   mkdirSync(directory, { recursive: true })
 }
 
+/**
+ * Materialize every symlink under `dir` as a real copy, recursively. The deploy
+ * keeps the `link:vendor/*` overrides (schemastery, cosmokit) as symlinks, which
+ * electron-builder's 7-Zip archiver cannot follow ("cannot find the path"). Keep
+ * the packaged host closure symlink-free, mirroring the Python SDK precedent.
+ */
+function dereferenceSymlinks(dir: string): void {
+  let entries: string[]
+  try {
+    entries = readdirSync(dir)
+  } catch (_unreadable) {
+    return
+  }
+  for (const entry of entries) {
+    const path = join(dir, entry)
+    let stat: ReturnType<typeof lstatSync>
+    try {
+      stat = lstatSync(path)
+    } catch (_gone) {
+      continue
+    }
+    if (stat.isSymbolicLink()) {
+      const target = realpathSync(path)
+      rmSync(path, { recursive: true, force: true })
+      cpSync(target, path, { recursive: true, dereference: true })
+      dereferenceSymlinks(path)
+    } else if (stat.isDirectory()) {
+      dereferenceSymlinks(path)
+    }
+  }
+}
+
 function main(): void {
   // 1. host closure: deploy the desktop bundle's full runtime closure into resources/host.
   // Flags mirror the Python SDK's deploy precedent (scripts/build-exe-for-python-sdk.ts):
@@ -49,6 +81,7 @@ function main(): void {
   run(pnpm, ['--filter', '@deepseek-ai/dsh-desktop-app', 'deploy', '--legacy', '--prod',
     '--config.node-linker=hoisted', '--config.auto-install-peers=false', '--config.link-workspace-packages=true',
     join(resources, 'host')])
+  dereferenceSymlinks(join(resources, 'host', 'node_modules'))
 
   // 2. frontend dist: desktop-mode web build → resources/frontend.
   run(pnpm, ['--filter', '@deepseek-ai/dsh-web-frontend', 'run', 'build:desktop'])
