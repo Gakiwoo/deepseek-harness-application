@@ -2,6 +2,10 @@
 
 [English](README.md) | 中文
 
+<p align="center">
+  <img src="assets/dsh-home-full.png" alt="DeepSeek Harness 首页" width="100%">
+</p>
+
 基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh`）开发的桌面应用——这是一个开源、基于插件的智能体 agent harness。它把服务启动、运行时管理与浏览器表层封装成开箱即用的 Electron 窗口——你既不需要 Node.js，也不需要任何 shell 命令就能运行 agent。
 
 底层依旧是运行在 [Cordis](https://github.com/cordiverse/cordis) 上的**一切皆插件**架构。桌面壳只改变载体：宿主进程与渲染进程共享同一个 Cordis 实例，IPC fetch 桥取代了 HTTP，因此不残留任何服务器进程或局域网端口。

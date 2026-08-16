@@ -26,6 +26,10 @@
       "types": "./lib/types/client/index.d.ts",
       "default": "./lib/client.js"
     },
+    "./desktop-bridge": {
+      "types": "./lib/types/client/desktop-bridge.d.ts",
+      "default": "./lib/types/client/desktop-bridge.js"
+    },
     "./src/*": "./src/*",
     "./package.json": "./package.json"
   },

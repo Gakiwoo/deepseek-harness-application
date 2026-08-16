@@ -77,7 +77,7 @@ function createMainWindow(resourcesDir) {
   return window;
 }
 
-// ../../packages/client/connection/src/client/desktop-bridge.ts
+// ../../packages/client/connection/lib/types/client/desktop-bridge.js
 var DSH_FETCH_REQUEST = "dsh-fetch/request";
 var DSH_FETCH_RESPONSE = "dsh-fetch/response";
 var DSH_FETCH_CHUNK = "dsh-fetch/chunk";

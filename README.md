@@ -2,6 +2,10 @@
 
 English | [中文](README.zh.md)
 
+<p align="center">
+  <img src="assets/dsh-home-full.png" alt="DeepSeek Harness home screen" width="100%">
+</p>
+
 A desktop application built on [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (`dsh`), the open-source plugin-based agent harness. It wraps the service startup, runtime management, and the browser surface into an out-of-the-box Electron window — you need neither Node.js nor a shell command to run the agent.
 
 Under the hood, everything is still a plugin on [Cordis](https://github.com/cordiverse/cordis). The desktop shell only changes the carrier: the host process and the renderer share one Cordis instance, and an IPC fetch bridge replaces HTTP, so no server process and no LAN socket are left behind.
