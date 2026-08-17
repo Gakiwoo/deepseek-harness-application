@@ -14,7 +14,22 @@ import {
 } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
-import lefthookPackage from 'lefthook/package.json' with { type: 'json' }
+
+/**
+ * Production installs (`pnpm install --production`) prune devDependencies, so the
+ * `lefthook` package can legitimately be absent while this postinstall still runs.
+ * Resolution failure is a skip condition, not an installation failure; every other
+ * skip below (CI, non-git directory, missing binary) follows the same contract.
+ */
+async function loadLefthookManifest() {
+  try {
+    const manifest = await import('lefthook/package.json', { with: { type: 'json' } })
+    return manifest.default
+  } catch (error) {
+    if (errorCode(error) === 'ERR_MODULE_NOT_FOUND') return undefined
+    throw error
+  }
+}
 
 const MINIMUM_GIT = [2, 26, 0]
 const HOOKS_DIRECTORY = 'dsh-hooks'
@@ -690,6 +705,8 @@ function probePairingMergeDriver(root) {
 
 async function main() {
   if (process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true') return
+  const lefthookPackage = await loadLefthookManifest()
+  if (lefthookPackage === undefined) return
   if (typeof lefthookPackage.bin?.lefthook !== 'string') return
   const probe = spawnSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' })
   if (probe.status !== 0) return
