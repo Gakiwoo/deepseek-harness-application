@@ -4,7 +4,7 @@ import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
 const rootConfigPath = fileURLToPath(new URL('../../../tsconfig.base.json', import.meta.url))
-const rootConfigResult = ts.readConfigFile(rootConfigPath, ts.sys.readFile)
+const rootConfigResult = ts.readConfigFile(rootConfigPath, path => ts.sys.readFile(path))
 if (rootConfigResult.error) {
   throw new Error(ts.flattenDiagnosticMessageText(rootConfigResult.error.messageText, '\n'))
 }
@@ -14,6 +14,7 @@ const rootConfig = rootConfigResult.config as {
 const desktopPackage = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
   scripts: { 'build:shell': string }
 }
+const packScript = readFileSync(new URL('../../../scripts/pack-desktop.ts', import.meta.url), 'utf8')
 
 describe('desktop build contracts', () => {
   it('resolves the pure desktop bridge from source', () => {
@@ -24,5 +25,16 @@ describe('desktop build contracts', () => {
 
   it('keeps Electron external to both shell bundles', () => {
     expect(desktopPackage.scripts['build:shell'].match(/--external:electron/g)).toHaveLength(2)
+  })
+
+  it('copies the splash page into prepared desktop resources', () => {
+    expect(packScript).toContain(
+      "cpSync(join(appDir, 'src', 'splash.html'), join(resources, 'splash.html'))",
+    )
+  })
+
+  it('does not let packaging reconcile the workspace dependency state', () => {
+    expect(packScript).toContain("const PNPM_RUN_CONFIG = '--config.verify-deps-before-run=false'")
+    expect(packScript).toContain('run(pnpm, [PNPM_RUN_CONFIG, ...args]')
   })
 })
