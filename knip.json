@@ -741,6 +741,9 @@
       ]
     },
     "apps/desktop": {
+      "entry": [
+        "tests/**/*.snapshot.ts"
+      ],
       "project": [
         "src/**/*.ts",
         "tests/**/*.ts"

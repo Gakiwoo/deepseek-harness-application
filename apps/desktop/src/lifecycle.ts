@@ -1,5 +1,5 @@
 /** Maximum time the desktop shell waits for orderly disposal. */
-export const DESKTOP_SHUTDOWN_TIMEOUT_MS = 5_000
+const DESKTOP_SHUTDOWN_TIMEOUT_MS = 5_000
 
 /** Coordinates one orderly desktop shutdown and immediate repeat-request escalation. */
 export interface DesktopShutdown {
@@ -24,7 +24,7 @@ export interface DesktopSignalSource {
 }
 
 /** Native quit event needed by the orderly shutdown bridge. */
-export interface DesktopQuitEvent {
+interface DesktopQuitEvent {
   /** Defers Electron's native quit until disposal finishes. */
   preventDefault(): void
 }

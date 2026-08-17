@@ -18,7 +18,7 @@ export interface DesktopTrayMenuItem {
 }
 
 /** Native image operations used by tray construction. */
-export interface DesktopTrayImage {
+interface DesktopTrayImage {
   /** @returns Whether decoding produced no pixels. */
   isEmpty(): boolean
 
@@ -30,7 +30,7 @@ export interface DesktopTrayImage {
 }
 
 /** Native tray operations owned by the desktop shell. */
-export interface DesktopTrayFace {
+interface DesktopTrayFace {
   /** Sets hover text. */
   setToolTip(tooltip: string): void
 
