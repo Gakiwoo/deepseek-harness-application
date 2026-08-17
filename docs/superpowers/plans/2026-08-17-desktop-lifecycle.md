@@ -40,7 +40,7 @@ docs/subsystems/desktop-app.md / .zh.md             subsystem lifecycle referenc
 
 - [ ] **Step 1: Write the failing build-contract tests**
 
-```ts
+```ts no-check
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
@@ -113,7 +113,7 @@ git commit -m "fix(desktop): preserve clean source and preload Electron imports"
 
 The test file imports `createDesktopShutdown` and `installShutdownRequests`. Cover these exact cases:
 
-```ts
+```ts no-check
 it('disposes once and exits with the requested code', async () => {
   const dispose = vi.fn(async () => {})
   const exit = vi.fn()
@@ -166,7 +166,7 @@ Expected: FAIL because `../src/lifecycle.ts` does not exist.
 
 Implement these public contracts with concise JSDoc:
 
-```ts
+```ts no-check
 export const DESKTOP_SHUTDOWN_TIMEOUT_MS = 5_000
 
 export interface DesktopShutdown {
@@ -212,7 +212,7 @@ git commit -m "feat(desktop): add bounded orderly shutdown"
 
 Test exported `showDesktopWindow`, `handleDesktopWindowClose`, `isDesktopNavigation`, and `handleDesktopWindowOpen` with small fakes:
 
-```ts
+```ts no-check
 it('restores, shows, and focuses a minimized window', () => {
   const window = fakeWindow({ minimized: true })
   showDesktopWindow(window)
@@ -252,7 +252,7 @@ Expected: FAIL because the behavior exports do not exist.
 
 Use these interfaces so tests do not import Electron:
 
-```ts
+```ts no-check
 export interface DesktopWindowFace {
   isDestroyed(): boolean
   isMinimized(): boolean
@@ -297,7 +297,7 @@ git commit -m "feat(desktop): hide and safely restore the main window"
 
 Define a fake `Tray` that records tooltip, menu, listeners, and destruction. Assert:
 
-```ts
+```ts no-check
 expect(menuTemplate.map(item => item.label ?? item.type)).toEqual([
   'Show DeepSeek Harness',
   'separator',
@@ -317,7 +317,7 @@ Expected: FAIL because `../src/tray.ts` does not exist.
 
 Export an injected constructor for tests and an Electron adapter for production:
 
-```ts
+```ts no-check
 export interface DesktopTrayHandle { dispose(): void }
 
 export function createDesktopTray(
@@ -330,7 +330,7 @@ export function createDesktopTray(
 
 Store two 32×32 PNG data URLs derived from `apps/web/public/favicon.svg`: a black alpha template for macOS and `#2563eb` for other platforms. Use these exact payloads:
 
-```ts
+```ts no-check
 const TEMPLATE_TRAY_ICON = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAAAsTAAALEwEAmpwYAAACWUlEQVRYhe2WTYiOURTHf2aYD2SkqclqfCxI+YoaseC1GGJnDAslUxZY2JBioaRZsDArkZ1pWOhNpiZEahYijK9iZjOrSTGmhhjSGEa3/q+O233mPo/Xu/L+69TznHu+7rn3nHugjDJKg3lA7l8anAvU6nsOsA/oBgaBx8AsT/4I0F+Mw2XABRn5AUyKRoBv5t9RU0D/utYuAw0JPppCWaoCOoCfnpOpaG3A+C2z/hFYJ/4CYAtwAvgCnLZKlUBPBscFGga2egGc92QeAFcDuq1W6cxfOC/Qd6DN2NqUQucDMLOgsAQYLyKASR3bYRPElYj8Xrv7ziKd2yAOmPvUFZBxd2KPdT4dGNXiENAHvCsyiFOyu9PwnwAtwGz/xq6WQK/HXwgcAl5FHE4AD1Wilv9amyn8u4sZxDYJ3E8SAHYDbxMC6FeZuQZ1Y4pAjycZ3yUBl/ZYe+0NGP6sO7QDqAFeJATgl+pv5IzQ4kgQ1Qm7/ATsl8yaQCMbV4aCWGQEjxKH6/vPAkE8BeYrU2+8tXsxo0PmPCtSBNGocgpVwESA/0fZhXDJCLs7kQZtKcvSvZgzYsaWm3Nz6atLGUR3ip7gHp9UyBvFm2okfpAngXrDqw+ct6VzZECD1wHzZghxWCX+e2C74W/Q0+o7vxPYRBQ54Ksx8hxYadYfmdR2qCxRmv1BxfWMZmBa1iA2A2PeObqx67aeXevkpTppjfSGA5kYUGlmwlKvj6chN7qdVS/JK1t3gXYNO5lRBRxUGcWcu3dkIyVCJbAeOKYh85roogaQFaVyXMb/gV/dRWbOp9K5uAAAAABJRU5ErkJggg=='
 const BLUE_TRAY_ICON = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAAAsTAAALEwEAmpwYAAADSUlEQVRYhe1WXYhMcRS/rG9Cm9q21Fpz/jOasogiHlgPiDcMD2Tdc8aE4oUUDzbJAw88ibwRHiRRQqQ8iKzv8lHaUqKde860Nl/Jx16dOx935s7dmdlln+ypf839z/+c8/ufc37n/C1rSIZkECROPfURlNZ/ZrCp7ePkqYl3Y/U3bMhMNOhsNsRXDEonIHe0bOwaX3zekOwC5FcDdgh2Jm6IT6gRg/zbkLi6AEUMyvf8t7fszPwyfeJL3nni082UbgjzoXplUYon3FGG5Jgh7i1xUmHFUOaVGUe5XjiD3APJzALdj7V1TYskneUGeZ9B+QokB32thFsHJFdrdew7ECdCzorSFPDx0nN8D1DOB3WBOFGEmg/323khNfwTyLHztiIkS6rr8cfG1IdxnkIMJQbIPwYKIGew1xDvLLrQuYrn7cym4pCd+TvnPghA2erXE58tTxn3AMqGgvPF7e4Ig9ydM/DOoDwyKOm/igTKAbULSWdtUb4fAjpr4tudCaWUQZ6TO3SneD+a7GoGlO0G+UUVh78M8n2PoqX7L73L+N/Hw+hoGeKV2UKSu6EHFAzxekPS1UcBvlKaZRsUX+4baGZvqPGIzetydEr3BcDLKfXUa5TKAcjnbA1lVje1vR0DJM/CAASp6gNAaS0YSzmRSiBgx5vRYbcE4k9R4qRnLylzg41MGaYRCk+BnZ7uV6jstqqI9n1D8iTklo9npLhRIwXE7wMAblc0arT6c/m02t3h1UBMw+4mpVMfveBXSJp82oUJkJwq5MrmddUAZHUcuyZaonTOTbkjKxqLbU7PzOdNwzc91T2pFhDeSK7SE3T41GLLMiQX/aKSa9pIgiCBeH809WFKfk9/B/MduP1Rq1ZppnRDoANezD9CPIBJZ3Zunw3yqgIIchbpaA1puTeDl6gqkSwlvxUVz1NjO7Py/wPyA7/Y5JjS0tPzZnzgoUJyBzCzzLLcYf0CEU3KUiD5UjpguMOg3NCxG6ju59pJtQGpnr4NQjrla6Vm/0CkZEZpH6+l2vk3EB/RXqLp02gB8S0gOaSPHau/Ek+4o4Bkm9KomnOdI2DzYmtQJOHWRbY4C4Fkjz4yDckFXYB8Uh8gUUq3DI7jIflf5A8E1QULjH3uGwAAAABJRU5ErkJggg=='
 ```
@@ -361,7 +361,7 @@ git commit -m "feat(desktop): add minimal native tray"
 
 Add a failing test for a new `disposeDesktopShell` helper and an assertion that a close handler observes the shutdown controller's live `isPending()` state. The helper test pins the order required by `main.ts`:
 
-```ts
+```ts no-check
 const trace: string[] = []
 const shutdown = createDesktopShutdown(
   () => disposeDesktopShell({
@@ -399,7 +399,7 @@ The shell state contains only optional `window`, `tray`, `host`, and `pump` hand
 
 Add this helper to `lifecycle.ts` and use it as the shutdown disposer:
 
-```ts
+```ts no-check
 export async function disposeDesktopShell(resources: DesktopShellResources): Promise<void> {
   resources.pump?.dispose()
   try {
@@ -438,7 +438,7 @@ git commit -m "feat(desktop): compose close-to-tray lifecycle"
 
 Use the real `showDesktopWindow`, `handleDesktopWindowClose`, and `createDesktopShutdown` with trace-recording adapters:
 
-```ts
+```ts no-check
 it('records hide, restore, and orderly quit', async () => {
   const trace: string[] = ['boot']
   const window = traceWindow(trace)

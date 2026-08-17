@@ -69,7 +69,7 @@ export interface DesktopTrayHandle {
 export const electronTrayNative: DesktopTrayNative = {
   nativeImage: { createFromDataURL: dataUrl => nativeImage.createFromDataURL(dataUrl) },
   menu: {
-    buildFromTemplate: template => Menu.buildFromTemplate(template as Electron.MenuItemConstructorOptions[]),
+    buildFromTemplate: template => Menu.buildFromTemplate(template),
   },
   createTray: image => new Tray(image as Electron.NativeImage),
 }

@@ -419,7 +419,11 @@ async function bootPrimaryInstance(shutdown) {
   }
   state.host = host;
   mountDshProtocol(host.runtime);
-  state.pump = mountFetchPump(ipcFace(), window.window.webContents, host.runtime.fetch);
+  state.pump = mountFetchPump(
+    ipcFace(),
+    window.window.webContents,
+    (request) => host.runtime.fetch(request)
+  );
   await window.window.loadURL("dsh://app/");
 }
 function reportFailure(title, error, shutdown) {

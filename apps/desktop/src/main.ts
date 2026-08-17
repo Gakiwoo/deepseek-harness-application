@@ -79,7 +79,7 @@ if (!app.requestSingleInstanceLock()) {
     registerDshScheme()
     void app.whenReady()
       .then(() => { return bootPrimaryInstance(shutdown) })
-      .catch((error) => { reportFailure('Unexpected failure', error, shutdown) })
+      .catch((error: unknown) => { reportFailure('Unexpected failure', error, shutdown) })
   } catch (error) {
     reportFailure('Startup failure', error, shutdown)
   }
@@ -119,7 +119,11 @@ async function bootPrimaryInstance(shutdown: DesktopShutdown): Promise<void> {
 
   state.host = host
   mountDshProtocol(host.runtime)
-  state.pump = mountFetchPump(ipcFace(), window.window.webContents, host.runtime.fetch)
+  state.pump = mountFetchPump(
+    ipcFace(),
+    window.window.webContents,
+    request => host.runtime.fetch(request),
+  )
   await window.window.loadURL('dsh://app/')
 }
 
