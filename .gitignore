@@ -41,3 +41,5 @@ worktrees/
 .typert-*/
 .tmp-shot/
 apps/desktop/resources/
+_tmp_*
+.workbuddy/
