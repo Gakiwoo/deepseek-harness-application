@@ -1,9 +1,77 @@
 "use strict";
 
 // src/main.ts
-var import_electron3 = require("electron");
+var import_electron4 = require("electron");
 var import_node_path2 = require("node:path");
 var import_node_url = require("node:url");
+
+// src/lifecycle.ts
+var DESKTOP_SHUTDOWN_TIMEOUT_MS = 5e3;
+async function disposeDesktopShell(resources) {
+  resources.pump?.dispose();
+  try {
+    await resources.host?.dispose();
+  } finally {
+    resources.native?.dispose();
+  }
+}
+function createDesktopShutdown(dispose, exit, timeoutMs = DESKTOP_SHUTDOWN_TIMEOUT_MS) {
+  let pending;
+  let exited = false;
+  const exitOnce = (code) => {
+    if (exited) return;
+    exited = true;
+    exit(code);
+  };
+  return {
+    request(code) {
+      if (pending !== void 0) {
+        exitOnce(code);
+        return pending;
+      }
+      pending = new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+          exitOnce(code === 0 ? 1 : code);
+          resolve();
+        }, timeoutMs);
+        void dispose().then(
+          () => {
+            clearTimeout(timeout);
+            exitOnce(code);
+            resolve();
+          },
+          () => {
+            clearTimeout(timeout);
+            exitOnce(code === 0 ? 1 : code);
+            resolve();
+          }
+        );
+      });
+      return pending;
+    },
+    isPending: () => pending !== void 0
+  };
+}
+function installShutdownRequests(signals, nativeApp, requestQuit) {
+  const onInterrupt = () => {
+    requestQuit(130);
+  };
+  const onTerminate = () => {
+    requestQuit(0);
+  };
+  const onBeforeQuit = (event) => {
+    event.preventDefault();
+    requestQuit(0);
+  };
+  signals.on("SIGINT", onInterrupt);
+  signals.on("SIGTERM", onTerminate);
+  nativeApp.on("before-quit", onBeforeQuit);
+  return () => {
+    signals.off("SIGINT", onInterrupt);
+    signals.off("SIGTERM", onTerminate);
+    nativeApp.off("before-quit", onBeforeQuit);
+  };
+}
 
 // src/protocol.ts
 var import_node_fs = require("node:fs");
@@ -46,8 +114,48 @@ function mountDshProtocol(runtime) {
   });
 }
 
-// src/window.ts
+// src/tray.ts
 var import_electron2 = require("electron");
+var TEMPLATE_TRAY_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAAAsTAAALEwEAmpwYAAACWUlEQVRYhe2WTYiOURTHf2aYD2SkqclqfCxI+YoaseC1GGJnDAslUxZY2JBioaRZsDArkZ1pWOhNpiZEahYijK9iZjOrSTGmhhjSGEa3/q+O233mPo/Xu/L+69TznHu+7rn3nHugjDJKg3lA7l8anAvU6nsOsA/oBgaBx8AsT/4I0F+Mw2XABRn5AUyKRoBv5t9RU0D/utYuAw0JPppCWaoCOoCfnpOpaG3A+C2z/hFYJ/4CYAtwAvgCnLZKlUBPBscFGga2egGc92QeAFcDuq1W6cxfOC/Qd6DN2NqUQucDMLOgsAQYLyKASR3bYRPElYj8Xrv7ziKd2yAOmPvUFZBxd2KPdT4dGNXiENAHvCsyiFOyu9PwnwAtwGz/xq6WQK/HXwgcAl5FHE4AD1Wilv9amyn8u4sZxDYJ3E8SAHYDbxMC6FeZuQZ1Y4pAjycZ3yUBl/ZYe+0NGP6sO7QDqAFeJATgl+pv5IzQ4kgQ1Qm7/ATsl8yaQCMbV4aCWGQEjxKH6/vPAkE8BeYrU2+8tXsxo0PmPCtSBNGocgpVwESA/0fZhXDJCLs7kQZtKcvSvZgzYsaWm3Nz6atLGUR3ip7gHp9UyBvFm2okfpAngXrDqw+ct6VzZECD1wHzZghxWCX+e2C74W/Q0+o7vxPYRBQ54Ksx8hxYadYfmdR2qCxRmv1BxfWMZmBa1iA2A2PeObqx67aeXevkpTppjfSGA5kYUGlmwlKvj6chN7qdVS/JK1t3gXYNO5lRBRxUGcWcu3dkIyVCJbAeOKYh85roogaQFaVyXMb/gV/dRWbOp9K5uAAAAABJRU5ErkJggg==";
+var BLUE_TRAY_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAAAsTAAALEwEAmpwYAAADSUlEQVRYhe1WXYhMcRS/rG9Cm9q21Fpz/jOasogiHlgPiDcMD2Tdc8aE4oUUDzbJAw88ibwRHiRRQqQ8iKzv8lHaUqKde860Nl/Jx16dOx935s7dmdlln+ypf839z/+c8/ufc37n/C1rSIZkECROPfURlNZ/ZrCp7ePkqYl3Y/U3bMhMNOhsNsRXDEonIHe0bOwaX3zekOwC5FcDdgh2Jm6IT6gRg/zbkLi6AEUMyvf8t7fszPwyfeJL3nni082UbgjzoXplUYon3FGG5Jgh7i1xUmHFUOaVGUe5XjiD3APJzALdj7V1TYskneUGeZ9B+QokB32thFsHJFdrdew7ECdCzorSFPDx0nN8D1DOB3WBOFGEmg/323khNfwTyLHztiIkS6rr8cfG1IdxnkIMJQbIPwYKIGew1xDvLLrQuYrn7cym4pCd+TvnPghA2erXE58tTxn3AMqGgvPF7e4Ig9ydM/DOoDwyKOm/igTKAbULSWdtUb4fAjpr4tudCaWUQZ6TO3SneD+a7GoGlO0G+UUVh78M8n2PoqX7L73L+N/Hw+hoGeKV2UKSu6EHFAzxekPS1UcBvlKaZRsUX+4baGZvqPGIzetydEr3BcDLKfXUa5TKAcjnbA1lVje1vR0DJM/CAASp6gNAaS0YSzmRSiBgx5vRYbcE4k9R4qRnLylzg41MGaYRCk+BnZ7uV6jstqqI9n1D8iTklo9npLhRIwXE7wMAblc0arT6c/m02t3h1UBMw+4mpVMfveBXSJp82oUJkJwq5MrmddUAZHUcuyZaonTOTbkjKxqLbU7PzOdNwzc91T2pFhDeSK7SE3T41GLLMiQX/aKSa9pIgiCBeH809WFKfk9/B/MduP1Rq1ZppnRDoANezD9CPIBJZ3Zunw3yqgIIchbpaA1puTeDl6gqkSwlvxUVz1NjO7Py/wPyA7/Y5JjS0tPzZnzgoUJyBzCzzLLcYf0CEU3KUiD5UjpguMOg3NCxG6ju59pJtQGpnr4NQjrla6Vm/0CkZEZpH6+l2vk3EB/RXqLp02gB8S0gOaSPHau/Ek+4o4Bkm9KomnOdI2DzYmtQJOHWRbY4C4Fkjz4yDckFXYB8Uh8gUUq3DI7jIflf5A8E1QULjH3uGwAAAABJRU5ErkJggg==";
+var electronTrayNative = {
+  nativeImage: { createFromDataURL: (dataUrl) => import_electron2.nativeImage.createFromDataURL(dataUrl) },
+  menu: {
+    buildFromTemplate: (template) => import_electron2.Menu.buildFromTemplate(template)
+  },
+  createTray: (image) => new import_electron2.Tray(image)
+};
+function createDesktopTray(native, platform, show, requestQuit) {
+  const macOS = platform === "darwin";
+  const source = macOS ? TEMPLATE_TRAY_ICON : BLUE_TRAY_ICON;
+  const size = macOS ? 18 : 20;
+  const image = native.nativeImage.createFromDataURL(source).resize({ width: size, height: size });
+  if (macOS) image.setTemplateImage(true);
+  if (image.isEmpty()) throw new Error("desktop tray icon is empty");
+  const template = [
+    { label: "Show DeepSeek Harness", click: show },
+    { type: "separator" },
+    { label: "Quit", click: () => {
+      requestQuit(0);
+    } }
+  ];
+  const tray = native.createTray(image);
+  tray.setToolTip("DeepSeek Harness");
+  tray.setContextMenu(native.menu.buildFromTemplate(template));
+  tray.on("double-click", show);
+  let disposed = false;
+  return {
+    dispose() {
+      if (disposed) return;
+      disposed = true;
+      tray.off("double-click", show);
+      tray.destroy();
+    }
+  };
+}
+
+// src/window.ts
+var import_electron3 = require("electron");
 var import_node_path = require("node:path");
 var EXTERNAL_PROTOCOLS = /* @__PURE__ */ new Set(["http:", "https:", "mailto:"]);
 function showDesktopWindow(window) {
@@ -80,7 +188,7 @@ function handleDesktopWindowOpen(raw, openExternal, report) {
   return { action: "deny" };
 }
 function createMainWindow(resourcesDir, isQuitting, reportExternalOpenError2) {
-  const window = new import_electron2.BrowserWindow({
+  const window = new import_electron3.BrowserWindow({
     width: 1280,
     height: 800,
     minWidth: 960,
@@ -114,7 +222,7 @@ function createMainWindow(resourcesDir, isQuitting, reportExternalOpenError2) {
   window.webContents.on("will-redirect", onRedirect);
   window.webContents.setWindowOpenHandler(({ url }) => handleDesktopWindowOpen(
     url,
-    (externalUrl) => import_electron2.shell.openExternal(externalUrl),
+    (externalUrl) => import_electron3.shell.openExternal(externalUrl),
     reportExternalOpenError2
   ));
   let disposed = false;
@@ -209,96 +317,121 @@ async function pumpOne(sender, wire, signal, fetch) {
 }
 
 // src/main.ts
-var state = { quitting: false };
+var state = {};
 function ipcFace() {
   return {
     handle: (channel, listener) => {
-      import_electron3.ipcMain.handle(channel, (_event, raw) => listener(raw));
+      import_electron4.ipcMain.handle(channel, (_event, raw) => listener(raw));
     },
     removeHandler: (channel) => {
-      import_electron3.ipcMain.removeHandler(channel);
+      import_electron4.ipcMain.removeHandler(channel);
     }
   };
 }
-if (!import_electron3.app.requestSingleInstanceLock()) {
-  import_electron3.app.quit();
+if (!import_electron4.app.requestSingleInstanceLock()) {
+  import_electron4.app.exit(0);
 } else {
-  import_electron3.app.on("second-instance", () => {
+  let disposeNativeListeners = () => {
+  };
+  const shutdown = createDesktopShutdown(
+    () => disposeDesktopShell({
+      pump: state.pump,
+      host: state.host,
+      native: {
+        dispose: () => {
+          disposeNativeListeners();
+          state.tray?.dispose();
+          state.window?.dispose();
+        }
+      }
+    }),
+    (code) => {
+      import_electron4.app.exit(code);
+    }
+  );
+  const onSecondInstance = () => {
     state.window?.show();
-  });
-  registerDshScheme();
-  import_electron3.app.on("window-all-closed", () => {
-    if (process.platform !== "darwin") import_electron3.app.quit();
-  });
-  import_electron3.app.on("activate", () => {
-    if (state.window === void 0 && state.host !== void 0) void loadReady();
-  });
-  void import_electron3.app.whenReady().then(main).catch(fatal);
-}
-async function main() {
-  const resourcesDir = import_electron3.app.isPackaged ? process.resourcesPath : (0, import_node_path2.join)(import_electron3.app.getAppPath(), "resources");
-  const hostBootPath = import_electron3.app.isPackaged ? (0, import_node_path2.join)(process.resourcesPath, "host", "node_modules", "@deepseek-ai", "dsh-desktop-app", "lib", "host-boot.js") : (0, import_node_path2.join)(import_electron3.app.getAppPath(), "node_modules", "@deepseek-ai", "dsh-desktop-app", "lib", "host-boot.js");
-  const { bootDesktopHost } = await import((0, import_node_url.pathToFileURL)(hostBootPath).href);
-  state.window = createMainWindow(resourcesDir, () => state.quitting, reportExternalOpenError);
+  };
+  const onActivate = () => {
+    state.window?.show();
+  };
+  const onUnhandledRejection = (reason) => {
+    reportFailure("Unexpected failure", reason, shutdown);
+  };
+  const disposeShutdownRequests = installShutdownRequests(
+    process,
+    import_electron4.app,
+    (code) => {
+      void shutdown.request(code);
+    }
+  );
+  import_electron4.app.on("second-instance", onSecondInstance);
+  import_electron4.app.on("activate", onActivate);
+  process.on("unhandledRejection", onUnhandledRejection);
+  disposeNativeListeners = () => {
+    disposeShutdownRequests();
+    import_electron4.app.off("second-instance", onSecondInstance);
+    import_electron4.app.off("activate", onActivate);
+    process.off("unhandledRejection", onUnhandledRejection);
+  };
   try {
-    state.host = await bootDesktopHost({
+    registerDshScheme();
+    void import_electron4.app.whenReady().then(() => {
+      return bootPrimaryInstance(shutdown);
+    }).catch((error) => {
+      reportFailure("Unexpected failure", error, shutdown);
+    });
+  } catch (error) {
+    reportFailure("Startup failure", error, shutdown);
+  }
+}
+async function bootPrimaryInstance(shutdown) {
+  const resourcesDir = import_electron4.app.isPackaged ? process.resourcesPath : (0, import_node_path2.join)(import_electron4.app.getAppPath(), "resources");
+  const window = createMainWindow(
+    resourcesDir,
+    () => shutdown.isPending(),
+    reportExternalOpenError
+  );
+  state.window = window;
+  state.tray = createDesktopTray(
+    electronTrayNative,
+    process.platform,
+    () => {
+      state.window?.show();
+    },
+    (code) => {
+      void shutdown.request(code);
+    }
+  );
+  const hostBootPath = import_electron4.app.isPackaged ? (0, import_node_path2.join)(process.resourcesPath, "host", "node_modules", "@deepseek-ai", "dsh-desktop-app", "lib", "host-boot.js") : (0, import_node_path2.join)(import_electron4.app.getAppPath(), "node_modules", "@deepseek-ai", "dsh-desktop-app", "lib", "host-boot.js");
+  const { bootDesktopHost } = await import((0, import_node_url.pathToFileURL)(hostBootPath).href);
+  let host;
+  try {
+    host = await bootDesktopHost({
       frontendIndexPath: (0, import_node_path2.join)(resourcesDir, "frontend", "index.html"),
       requestExit: (code) => {
-        import_electron3.app.exit(code);
+        void shutdown.request(code);
       }
     });
   } catch (error) {
-    await showError(state.window.window, error);
-    import_electron3.app.exit(1);
+    reportFailure("Startup failure", error, shutdown);
     return;
   }
-  process.on("unhandledRejection", (reason) => {
-    import_electron3.dialog.showErrorBox("DeepSeek Harness", `Unexpected failure:
-${String(reason)}`);
-    import_electron3.app.exit(1);
-  });
-  mountDshProtocol(state.host.runtime);
-  state.pump = mountFetchPump(ipcFace(), state.window.window.webContents, state.host.runtime.fetch);
-  import_electron3.app.on("before-quit", (event) => {
-    if (state.quitting || state.host === void 0) return;
-    state.quitting = true;
-    event.preventDefault();
-    const host = state.host;
-    void Promise.race([host.dispose(), new Promise((resolve) => {
-      setTimeout(resolve, 5e3);
-    })]).then(() => {
-      import_electron3.app.quit();
-    });
-  });
-  await loadReady();
+  state.host = host;
+  mountDshProtocol(host.runtime);
+  state.pump = mountFetchPump(ipcFace(), window.window.webContents, host.runtime.fetch);
+  await window.window.loadURL("dsh://app/");
 }
-async function loadReady() {
-  const host = state.host;
-  if (host === void 0) throw new Error("desktop: cannot load the renderer before the host is ready");
-  const handle = state.window ?? createMainWindow(
-    (0, import_node_path2.join)(import_electron3.app.getAppPath(), "resources"),
-    () => state.quitting,
-    reportExternalOpenError
-  );
-  state.window = handle;
-  state.pump?.dispose();
-  state.pump = mountFetchPump(ipcFace(), handle.window.webContents, host.runtime.fetch);
-  await handle.window.loadURL("dsh://app/");
-}
-async function showError(window, error) {
-  const message = error instanceof Error ? `${error.message}
-
-${String(error.stack ?? "")}` : String(error);
-  await window.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(
-    `<!doctype html><meta charset="utf-8"><body style="font:14px system-ui;background:#1e1e1e;color:#eee;padding:40px"><h1>\u542F\u52A8\u5931\u8D25 / Startup failure</h1><pre>${message.replaceAll("<", "&lt;")}</pre><p>\u65E5\u5FD7 / Logs: ~/.dsh/logs/</p></body>`
-  ));
-}
-function fatal(error) {
-  import_electron3.dialog.showErrorBox("DeepSeek Harness", error instanceof Error ? error.stack ?? error.message : String(error));
-  import_electron3.app.exit(1);
+function reportFailure(title, error, shutdown) {
+  const message = error instanceof Error ? error.stack ?? error.message : String(error);
+  import_electron4.dialog.showErrorBox("DeepSeek Harness", `${title}:
+${message}`);
+  process.stderr.write(`[desktop] ${title}: ${message}
+`);
+  void shutdown.request(1);
 }
 function reportExternalOpenError(error) {
-  import_electron3.dialog.showErrorBox("DeepSeek Harness", `Unable to open external link:
+  import_electron4.dialog.showErrorBox("DeepSeek Harness", `Unable to open external link:
 ${String(error)}`);
 }
 //# sourceMappingURL=main.js.map

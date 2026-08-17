@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createDesktopShutdown, installShutdownRequests } from '../src/lifecycle.ts'
+import {
+  createDesktopShutdown,
+  disposeDesktopShell,
+  installShutdownRequests,
+} from '../src/lifecycle.ts'
 
 afterEach(() => {
   vi.useRealTimers()
@@ -73,5 +77,24 @@ describe('desktop shutdown', () => {
     dispose()
     expect(signalListeners).toHaveLength(0)
     expect(appListeners).toHaveLength(0)
+  })
+
+  it('disposes the pump, host, and native resources in order', async () => {
+    const trace: string[] = []
+    const shutdown = createDesktopShutdown(
+      () => disposeDesktopShell({
+        pump: { dispose: () => { trace.push('pump.dispose') } },
+        host: {
+          dispose: async () => {
+            trace.push('host.dispose')
+            throw new Error('host failure')
+          },
+        },
+        native: { dispose: () => { trace.push('native.dispose') } },
+      }),
+      (code) => { trace.push(`app.exit:${String(code)}`) },
+    )
+    await shutdown.request(0)
+    expect(trace).toEqual(['pump.dispose', 'host.dispose', 'native.dispose', 'app.exit:1'])
   })
 })

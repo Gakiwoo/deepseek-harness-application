@@ -6,6 +6,7 @@ import {
   showDesktopWindow,
   type DesktopWindowFace,
 } from '../src/window.ts'
+import { createDesktopShutdown } from '../src/lifecycle.ts'
 
 function fakeWindow(options: { minimized?: boolean; destroyed?: boolean } = {}): DesktopWindowFace & { trace: string[] } {
   const trace: string[] = []
@@ -41,6 +42,25 @@ describe('desktop window behavior', () => {
     expect(window.trace).toEqual(['hide'])
     handleDesktopWindowClose(window, { preventDefault: vi.fn() }, true)
     expect(window.trace).toEqual(['hide'])
+  })
+
+  it('observes the live shutdown state for each close request', () => {
+    const window = fakeWindow()
+    let finish!: () => void
+    const shutdown = createDesktopShutdown(
+      () => new Promise<void>((resolve) => { finish = resolve }),
+      vi.fn(),
+    )
+    const ordinaryClose = { preventDefault: vi.fn() }
+    handleDesktopWindowClose(window, ordinaryClose, shutdown.isPending())
+    const pending = shutdown.request(0)
+    const finalClose = { preventDefault: vi.fn() }
+    handleDesktopWindowClose(window, finalClose, shutdown.isPending())
+
+    expect(ordinaryClose.preventDefault).toHaveBeenCalledOnce()
+    expect(finalClose.preventDefault).not.toHaveBeenCalled()
+    finish()
+    return pending
   })
 
   it.each([

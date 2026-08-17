@@ -38,6 +38,32 @@ export interface DesktopQuitSource {
   off(event: 'before-quit', listener: (event: DesktopQuitEvent) => void): unknown
 }
 
+/** Desktop resources released by the shared shutdown path. */
+export interface DesktopShellResources {
+  /** Renderer IPC carrier, released before the Host. */
+  readonly pump?: { dispose(): void }
+
+  /** Plugin Host, allowed to finish before native resources disappear. */
+  readonly host?: { dispose(): Promise<void> }
+
+  /** Window, tray, and listener owner. */
+  readonly native?: { dispose(): void }
+}
+
+/**
+ * Releases desktop resources in transport, Host, then native order.
+ * @param resources Currently owned desktop resources.
+ * @returns Completion after Host disposal and mandatory native cleanup.
+ */
+export async function disposeDesktopShell(resources: DesktopShellResources): Promise<void> {
+  resources.pump?.dispose()
+  try {
+    await resources.host?.dispose()
+  } finally {
+    resources.native?.dispose()
+  }
+}
+
 /**
  * Creates a bounded, single-use desktop shutdown controller.
  * @param dispose Releases desktop resources in their required order.
