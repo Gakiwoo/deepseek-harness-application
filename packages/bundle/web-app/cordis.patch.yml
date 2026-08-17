@@ -37,7 +37,8 @@
     # TEMPORARY workaround: DSH_TOOLS_MODE (native|code|both) opts a whole dsh
     # process into Code Mode while per-session tool-presentation selection is being
     # designed; unset keeps the schema default (native). Remove the env seam
-    # once the web UI owns the choice per session.
+    # once the web UI owns the choice per session. Keep in sync with the
+    # identical `tools` row in packages/bundle/desktop-app/cordis.patch.yml.
     mode: !!js process.env.DSH_TOOLS_MODE
 
 # ── web-only host rows, the transport layer, and the browser roster ─────────
@@ -284,8 +285,9 @@
 # absent from a surface overlay would silently reappear the day someone reorders
 # the composition.
 
-# `shell-env` STAYS in the host plane: `apps/cli/src/web.ts` injects it to
-# publish `DSH_WEB_URL`/`DSH_WEB_MODE`, and a host row that injects a service is
+# `shell-env` STAYS in the host plane: this bundle's own `shell-env` row in
+# `src/index.ts` injects it to publish `DSH_WEB_URL`/`DSH_WEB_MODE`, and a host
+# row that injects a service is
 # the criterion for host-plane ownership — injection resolves before any session
 # exists, so there is no agent to key by. Behind a preset realm those variables
 # would never reach the model's shell at all.
