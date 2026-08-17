@@ -244,7 +244,7 @@ function createMainWindow(resourcesDir, isQuitting, reportExternalOpenError2) {
   };
 }
 
-// ../../packages/client/connection/lib/types/client/desktop-bridge.js
+// ../../packages/client/connection/lib/desktop-bridge.js
 var DSH_FETCH_REQUEST = "dsh-fetch/request";
 var DSH_FETCH_RESPONSE = "dsh-fetch/response";
 var DSH_FETCH_CHUNK = "dsh-fetch/chunk";
@@ -308,7 +308,7 @@ async function pumpOne(sender, wire, signal, fetch) {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      if (value !== void 0 && value.byteLength > 0) sender.send(DSH_FETCH_CHUNK, { id: wire.id, data: value });
+      if (value.byteLength > 0) sender.send(DSH_FETCH_CHUNK, { id: wire.id, data: value });
     }
     sender.send(DSH_FETCH_END, { id: wire.id });
   } catch (error) {

@@ -11,7 +11,7 @@ import {
 const KEY = '__DSH_DESKTOP__'
 
 afterEach(() => {
-  delete (globalThis as Record<string, unknown>)[KEY]
+  Reflect.deleteProperty(globalThis, KEY)
 })
 
 function install(value: unknown): void {
@@ -51,5 +51,10 @@ describe('readDesktopBridge', () => {
   it('throws loud on a malformed global (protocol invariant)', () => {
     install({ request: 'not-a-function' })
     expect(() => readDesktopBridge()).toThrow(/__DSH_DESKTOP__/)
+  })
+
+  it.each([null, 'bridge'])('rejects a non-object global: %j', (candidate) => {
+    install(candidate)
+    expect(() => readDesktopBridge()).toThrow(/not an object/)
   })
 })

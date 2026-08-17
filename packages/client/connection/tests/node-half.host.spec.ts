@@ -11,6 +11,7 @@ import type { AttachmentStore } from '@deepseek-ai/dsh-attachment'
 import { RpcId, type ClientRequest } from '@deepseek-ai/dsh-host-apiproxy/api'
 import type { WebServer, WebRoute, WebUpgradeRoute } from '@deepseek-ai/dsh-host-webserver'
 import { API_PATH, apply, HOST_EVENTS_PATH, inject, MUX_EVENTS_PATH, type HostConnectionHandle } from '../src/index.ts'
+import { HostConnectionService } from '../src/rpc-host.ts'
 
 /** Structural webServer fake recording both route registries. */
 function fakeHttpServer(
@@ -90,6 +91,14 @@ async function mounted(config?: { trustedHosts?: string[] }): Promise<{
 }
 
 describe('connection node half', () => {
+  it('returns 404 before the API fallback is adopted', async () => {
+    const ctx = new Context()
+    const connection = new HostConnectionService(ctx, [])
+    const response = await connection.fetch(new Request('http://dsh.internal/api/missing'))
+    expect(response.status).toBe(404)
+    await ctx.fiber.dispose()
+  })
+
   it('fails loud when the carrier cap cannot hold the configured image batch', () => {
     const ctx = new Context()
     const routes: WebRoute[] = []
@@ -508,7 +517,7 @@ describe('connection node half without webServer (desktop surface)', () => {
     ctx.provide('apiProxy', minimalApiProxy())
     const fiber = ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
-    const connection = ctx.get('connection') as HostConnectionHandle | undefined
+    const connection = ctx.get('connection')
     if (connection === undefined) throw new Error('ctx.connection not provided')
     return { connection, dispose: () => fiber.dispose() }
   }
@@ -521,7 +530,7 @@ describe('connection node half without webServer (desktop surface)', () => {
       body: JSON.stringify({ type: 'client-request', rpcId: 't1', method: 'session.list', payload: {} }),
     }))
     expect(response.status).toBe(200)
-    const body = await response.json()
+    const body: unknown = await response.json()
     expect(body).toMatchObject({ type: 'server-response', rpcId: 't1', result: { ok: true, value: [] } })
     await dispose()
   })
@@ -534,4 +543,3 @@ describe('connection node half without webServer (desktop surface)', () => {
     await dispose()
   })
 })
-

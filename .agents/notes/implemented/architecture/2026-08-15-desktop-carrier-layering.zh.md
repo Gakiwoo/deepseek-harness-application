@@ -22,6 +22,8 @@ Status: implemented
 
 `/api` 信任栅栏把 IPC 视为 loopback 等价：这条私有的进程内通道被构造为 loopback 载体，因此特权方法钉扎（凭据访问、系统提示词权威）对桌面 IPC 调用与对 `127.0.0.1` HTTP 调用同样适用。
 
+Electron preload 与主进程胶水从打包后的宿主闭包导入 `@deepseek-ai/dsh-client-connection/desktop-bridge`。因此该子路径指向由 `package.json#files` 选入的独立 `lib/desktop-bridge.js` ESM bundle；它不会依赖 TypeScript 发射的 `lib/types` JavaScript 树，因为后者不属于发布载荷。
+
 ## 分层
 
 ```
@@ -59,6 +61,7 @@ apps/desktop/
 ## 测试
 
 - `packages/client/connection/tests/desktop-bridge.client.spec.ts` —— 线常量与桥校验
+- `pnpm run publint` —— 打包后的 `./desktop-bridge` 运行时与声明入口都存在于 manifest 选定的载荷中
 - `packages/client/connection/tests/desktop-api-client.client.spec.ts` —— 在假桥上的 DesktopApiClient
 - `apps/desktop/tests/fetch-pump.spec.ts` —— 注入式 ipc/sender/fetch 上的 IPC 泵
 - `packages/bundle/desktop-app/tests/desktop-boot.snapshot.ts` —— 完整 profile 启动 + IPC 线往返（keyless）

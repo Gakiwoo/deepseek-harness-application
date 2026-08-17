@@ -22,6 +22,8 @@ The main process's `fetch-pump` (`mountFetchPump`) receives these IPC invocation
 
 The `/api` trust fence treats IPC as loopback-equivalent: the private process-local channel is constructed as a loopback carrier, so the privileged-method pinning (credential access, system prompt authority) applies to desktop IPC calls the same way it applies to `127.0.0.1` HTTP calls.
 
+The Electron preload and main-process glue import `@deepseek-ai/dsh-client-connection/desktop-bridge` from the packaged host closure. That subpath therefore points to a dedicated `lib/desktop-bridge.js` ESM bundle selected by `package.json#files`; it never relies on the TypeScript-emitted `lib/types` JavaScript tree, which is not part of the publication payload.
+
 ## Layering
 
 ```
@@ -59,6 +61,7 @@ apps/desktop/
 ## Testing
 
 - `packages/client/connection/tests/desktop-bridge.client.spec.ts` — wire constants and bridge validation
+- `pnpm run publint` — the packaged `./desktop-bridge` runtime and declaration entries both exist in the manifest-selected payload
 - `packages/client/connection/tests/desktop-api-client.client.spec.ts` — DesktopApiClient over a fake bridge
 - `apps/desktop/tests/fetch-pump.spec.ts` — IPC pump over injected ipc/sender/fetch
 - `packages/bundle/desktop-app/tests/desktop-boot.snapshot.ts` — full profile boot + IPC wire round trip (keyless)

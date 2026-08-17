@@ -10,7 +10,7 @@ describe('assertDesktopTree', () => {
     ctx.provide('desktopRuntime', {} as never)
     ctx.provide('clientModules', {} as never)
     ctx.provide('apiProxy', {} as never)
-    expect(() => assertDesktopTree(ctx)).not.toThrow()
+    expect(() =>{  assertDesktopTree(ctx) }).not.toThrow()
     void ctx.fiber.dispose()
   })
 
@@ -18,7 +18,7 @@ describe('assertDesktopTree', () => {
     const ctx = new Context()
     ctx.provide('clientModules', {} as never)
     ctx.provide('apiProxy', {} as never)
-    expect(() => assertDesktopTree(ctx)).toThrow(/desktopRuntime/)
+    expect(() =>{  assertDesktopTree(ctx) }).toThrow(/desktopRuntime/)
     void ctx.fiber.dispose()
   })
 
@@ -26,7 +26,7 @@ describe('assertDesktopTree', () => {
     const ctx = new Context()
     ctx.provide('desktopRuntime', {} as never)
     ctx.provide('apiProxy', {} as never)
-    expect(() => assertDesktopTree(ctx)).toThrow(/clientModules/)
+    expect(() =>{  assertDesktopTree(ctx) }).toThrow(/clientModules/)
     void ctx.fiber.dispose()
   })
 
@@ -34,7 +34,7 @@ describe('assertDesktopTree', () => {
     const ctx = new Context()
     ctx.provide('desktopRuntime', {} as never)
     ctx.provide('clientModules', {} as never)
-    expect(() => assertDesktopTree(ctx)).toThrow(/apiProxy/)
+    expect(() =>{  assertDesktopTree(ctx) }).toThrow(/apiProxy/)
     void ctx.fiber.dispose()
   })
 })

@@ -46,7 +46,7 @@ export function mountFetchPump(
   fetch: (request: Request) => Promise<Response>,
 ): { dispose(): void } {
   const aborts = new Map<string, AbortController>()
-  ipc.handle(DSH_FETCH_REQUEST, raw => {
+  ipc.handle(DSH_FETCH_REQUEST, (raw) => {
     const wire = parseWireRequest(raw)
     if (wire === undefined) return { accepted: false }
     const controller = new AbortController()
@@ -54,7 +54,7 @@ export function mountFetchPump(
     void pumpOne(sender, wire, controller.signal, fetch).finally(() => { aborts.delete(wire.id) })
     return { accepted: true }
   })
-  ipc.handle(DSH_FETCH_ABORT, raw => {
+  ipc.handle(DSH_FETCH_ABORT, (raw) => {
     const id = (raw as { id?: unknown } | undefined)?.id
     if (typeof id === 'string') aborts.get(id)?.abort()
     return { accepted: true }
@@ -100,7 +100,7 @@ async function pumpOne(
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
-      if (value !== undefined && value.byteLength > 0) sender.send(DSH_FETCH_CHUNK, { id: wire.id, data: value })
+      if (value.byteLength > 0) sender.send(DSH_FETCH_CHUNK, { id: wire.id, data: value })
     }
     sender.send(DSH_FETCH_END, { id: wire.id })
   } catch (error) {

@@ -3,7 +3,7 @@
 [English](README.md) | 中文
 
 <p align="center">
-  <img src="assets/dsh-home-full.png" alt="DeepSeek Harness 首页" width="100%">
+  <img width="876" height="623" alt="deepseek harness" src="https://github.com/user-attachments/assets/555cf094-cee0-45aa-9d0a-405f619ec3d4" />
 </p>
 
 基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（`dsh`）开发的桌面应用——这是一个开源、基于插件的智能体 agent harness。它把服务启动、运行时管理与浏览器表层封装成开箱即用的 Electron 窗口——你既不需要 Node.js，也不需要任何 shell 命令就能运行 agent。

@@ -20,7 +20,7 @@ export function registerDshScheme(): void {
  * @param runtime - desktopRuntime face.
  */
 export function mountDshProtocol(runtime: DesktopRuntime): void {
-  protocol.handle('dsh', request => {
+  protocol.handle('dsh', (request) => {
     const path = decodeURIComponent(new URL(request.url).pathname)
     if (path === '/' || path === '/index.html') {
       const html = readFileSync(runtime.frontendIndex(), 'utf8')

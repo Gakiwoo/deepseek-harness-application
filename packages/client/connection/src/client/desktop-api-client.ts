@@ -27,10 +27,10 @@ export class DesktopApiClient extends AbstractApiClient {
   constructor(private readonly bridge: DesktopFetchBridge, timeoutMs?: number) {
     super(timeoutMs)
     this.detach = [
-      bridge.onResponse(message => { this.pending.get(message.id)?.onHead(message) }),
-      bridge.onChunk(message => { this.pending.get(message.id)?.onChunk(message.data) }),
-      bridge.onEnd(message => { this.pending.get(message.id)?.onEnd() }),
-      bridge.onError(message => { this.pending.get(message.id)?.onError(new Error(message.message)) }),
+      bridge.onResponse((message) => { this.pending.get(message.id)?.onHead(message) }),
+      bridge.onChunk((message) => { this.pending.get(message.id)?.onChunk(message.data) }),
+      bridge.onEnd((message) => { this.pending.get(message.id)?.onEnd() }),
+      bridge.onError((message) => { this.pending.get(message.id)?.onError(new Error(message.message)) }),
     ]
   }
 
@@ -81,11 +81,11 @@ export class DesktopApiClient extends AbstractApiClient {
         cancel: () => { this.bridge.abort(id) },
       })
       this.pending.set(id, {
-        onHead: message => {
+        onHead: (message) => {
           response = new Response(stream, { status: message.status, headers: message.headers })
           resolve(response)
         },
-        onChunk: data => {
+        onChunk: (data) => {
           try { controller?.enqueue(data) } catch { /* consumer cancelled */ }
         },
         onEnd: () => {
@@ -95,7 +95,7 @@ export class DesktopApiClient extends AbstractApiClient {
         onError: fail,
       })
       const wire: DesktopFetchWireRequest = { id, url: input.toString(), method: init?.method ?? 'GET', headers, body }
-      void this.bridge.request(wire).catch(error => { fail(error instanceof Error ? error : new Error(String(error))) })
+      void this.bridge.request(wire).catch((error: unknown) => { fail(error instanceof Error ? error : new Error(String(error))) })
       signal?.addEventListener('abort', onAbort, { once: true })
       if (signal?.aborted) onAbort()
     })
@@ -114,6 +114,6 @@ function flattenHeaders(headers: HeadersInit | undefined): Record<string, string
     for (const [key, value] of headers) flat[key] = value
     return flat
   }
-  for (const [key, value] of Object.entries(headers)) flat[key] = String(value)
+  for (const [key, value] of Object.entries(headers)) flat[key] = value
   return flat
 }
