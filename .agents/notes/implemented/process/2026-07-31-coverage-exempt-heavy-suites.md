@@ -27,6 +27,7 @@ A suite contributes to coverage exactly when it executes measured files in-proce
 | --- | --- | --- |
 | All 6 typert generator specs | The generator's own src | Generator src is threshold-excluded as a package (`vitest.config.ts`) — outside the threshold scope to begin with |
 | tools-catalog.spec additionally imports | `typert-registry` and `tool-cordis` src | Each package's own tests cover them fully (verified with focused coverage runs, zero threshold errors) |
+| `scripts/gen-client-catalog.spec.ts` | None — it tests `scripts/` source (never in `coverage.include`) through a whole-workspace lexical scan | Nothing to carry |
 | `scripts/install-lefthook.spec.ts`, `scripts/oxlint-contract.spec.ts`, `scripts/change-scope.spec.ts` | None — they test `scripts/` sources (never in `coverage.include`) and work by spawning child processes | Nothing to carry |
 
 ### Membership contract

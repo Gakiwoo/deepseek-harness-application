@@ -6,6 +6,10 @@ The DeepSeek Harness desktop shell (Electron). It wraps the service startup, run
 
 The shell is a three-layer Electron app: the **main process** boots the packaged host closure through [`@deepseek-ai/dsh-desktop-app`](../../packages/bundle/desktop-app/README.md)'s Electron-free `host-boot`, mounts the `dsh://` custom protocol, and runs the IPC fetch pump; the **preload** exposes only the IPC bridge (`window.__DSH_DESKTOP__`); the **renderer** is the ordinary web frontend over the `DesktopApiClient` carrier. The host and the plugin tree share one Cordis instance.
 
+## Native lifecycle
+
+Closing the window hides it to the native tray; the Host and its current work continue running. **Show DeepSeek Harness**, a tray double-click, or a second application launch restores the same single window. Only the tray's **Quit** command or an operating-system quit request disposes the Host and exits the process. Disposal has a five-second deadline, after which the shell forces a nonzero exit; a repeated quit request escalates immediately. This release's tray contains only **Show DeepSeek Harness** and **Quit**.
+
 ## Development
 
 From the repository root:

@@ -14,6 +14,14 @@
 
 渲染进程运行在 `dsh://` 自定义协议（不透明 origin）之下。它唯一的特权面是 preload 暴露的 `window.__DSH_DESKTOP__` 桥，它通过六条固定的 IPC 通道承载 fetch 请求（上行 `request`；下行 `response`/`chunk`/`end`/`error`；上行 `abort`）。渲染端的 `DesktopApiClient`——fixture 与 web 之外的第三个 `AbstractApiClient` 载体——在桥上传送字节，并重建一个流式的 WHATWG `Response`。没有新协议、没有 WebSocket、没有共享端口：渲染端通过一条私有通道与同一进程对话。
 
+## 原生载体生命周期
+
+Electron 主进程拥有一个窗口、一个托盘和一个 IPC 泵；Electron 无关 Host 句柄继续拥有 Cordis 树。普通的窗口关闭会被取消，并在不触及 Host 的情况下隐藏窗口。托盘的显示命令、双击托盘、再次启动应用以及操作系统激活事件都会恢复并聚焦同一个窗口。`window-all-closed` 不会结束进程。
+
+主框架导航只能留在精确的 `dsh://app` authority 内。子窗口请求一律拒绝；只有 `http:`、`https:` 和 `mailto:` URL 会交给操作系统处理，原生打开器失败会被报告，不会成为未处理 rejection。
+
+托盘退出、操作系统退出、`SIGINT`、`SIGTERM`、Host 退出请求以及壳的致命故障都会进入同一个关闭控制器。它依次移除 IPC 泵、dispose Host，然后销毁原生资源。第一个请求最多有五秒完成有序资源释放；资源释放拒绝或超时会把干净退出请求改为退出码 `1`，重复请求则立即退出。
+
 ## 服务
 
 `desktopRuntime`（定义于 [`packages/bundle/desktop-app/src/index.ts`](../../packages/bundle/desktop-app/src/index.ts)）暴露上述四个读取面；签名见生成的[服务目录](#ctxdesktopruntime--desktopruntime)。胶水还注册了 `app:desktop-surface` prompt section，把新建的会话引导到桌面窗口（没有 URL、端口或浏览器标签页，没有热重载，经常规宿主工具即可使用原生对话框）。

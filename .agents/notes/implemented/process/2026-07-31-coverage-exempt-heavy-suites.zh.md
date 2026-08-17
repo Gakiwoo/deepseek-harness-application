@@ -27,7 +27,8 @@ CI 覆盖率 lane（`check:ci:coverage`）的墙钟被少数几个重型测试�
 | --- | --- | --- |
 | typert generator 全部 6 个 spec | generator 自身 src | generator src 已整包 threshold-excluded（`vitest.config.ts`），本不在阈值口径内 |
 | 其中 tools-catalog.spec 额外 import | `typert-registry`、`tool-cordis` 的 src | 两包各自的测试独立满覆盖（focused coverage 实测无阈值错误） |
-| `scripts/install-lefthook.spec.ts`、`scripts/oxlint-contract.spec.ts`、`scripts/change-scope.spec.ts` | 无——被测对象是 `scripts/` 源码（从不在 coverage.include），执行方式是 spawn 子进程 | 无需接 |
+| `scripts/gen-client-catalog.spec.ts` | 无——被测对象是 `scripts/` 源码（从不在 `coverage.include`），执行方式是全工作区词法扫描 | 无需接 |
+| `scripts/install-lefthook.spec.ts`、`scripts/oxlint-contract.spec.ts`、`scripts/change-scope.spec.ts` | 无——被测对象是 `scripts/` 源码（从不在 `coverage.include`），执行方式是 spawn 子进程 | 无需接 |
 
 ### 成员资格约定
 

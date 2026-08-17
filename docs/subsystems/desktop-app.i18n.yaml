@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write docs/subsystems/desktop-app.md
-desktop-app.md: dd6f38d3bfcd9685cf5e0b740f1373e475f35813
-desktop-app.zh.md: 1b05a47eeaa89ee2d03bb21843831fd836a13896
+desktop-app.md: b37ab79166b1c47adf11f35edafa1c950d075d16
+desktop-app.zh.md: 3ee45e168ed123a5f56b527c63c33f4e4d3f9449

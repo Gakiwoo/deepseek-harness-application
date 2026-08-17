@@ -174,6 +174,11 @@ function expectedDshPackageFiles(manifest: PackageManifest): readonly string[] {
     // Keyed on the artifact path, not the subpath name: apiproxy's ./client is
     // a browser-safe source channel, not a bundle.
     ...exportDefault(manifest, './client') === './lib/client.js' ? ['lib/client.js'] : [],
+    // The Electron preload and main process share this browser-safe wire
+    // module through a standalone ESM subpath bundle.
+    ...hasExportPair(manifest, './desktop-bridge', './lib/types/client/desktop-bridge.d.ts', './lib/desktop-bridge.js')
+      ? ['lib/desktop-bridge.js']
+      : [],
     // runtime's shell-held loader subpath ships as its own bundle beside the client half.
     ...exportDefault(manifest, './loader') === './lib/loader.js' ? ['lib/loader.js'] : [],
     // web-react's store subpath ships its own bundle (single-entry builds; no shared chunk).

@@ -20,10 +20,10 @@ function createFakeBridge() {
   const bridge: DesktopFetchBridge = {
     async request(message) { requests.push(message) },
     abort(id) { aborts.push(id) },
-    onResponse: l => { channels.response.add(l); return () => { channels.response.delete(l) } },
-    onChunk: l => { channels.chunk.add(l); return () => { channels.chunk.delete(l) } },
-    onEnd: l => { channels.end.add(l); return () => { channels.end.delete(l) } },
-    onError: l => { channels.error.add(l); return () => { channels.error.delete(l) } },
+    onResponse: (l) => { channels.response.add(l); return () => { channels.response.delete(l) } },
+    onChunk: (l) => { channels.chunk.add(l); return () => { channels.chunk.delete(l) } },
+    onEnd: (l) => { channels.end.add(l); return () => { channels.end.delete(l) } },
+    onError: (l) => { channels.error.add(l); return () => { channels.error.delete(l) } },
   }
   return {
     bridge, requests, aborts,
@@ -118,5 +118,62 @@ describe('DesktopApiClient', () => {
     client.dispose()
     const reader = response.body!.getReader()
     await expect(reader.read()).rejects.toThrow()
+  })
+
+  it('aborts when a consumer cancels the response stream', async () => {
+    const fake = createFakeBridge()
+    const client = new DesktopApiClient(fake.bridge)
+    const pending = client.transport(new URL('http://dsh.internal/api/events.mux'))
+    await vi.waitFor(() => { if (fake.requests.length === 0) throw new Error('no request') })
+    const wire = fake.requests[0]!
+    fake.respond({ id: wire.id, status: 200, headers: {} })
+    const response = await pending
+    await response.body!.cancel()
+    expect(fake.aborts).toEqual([wire.id])
+    client.dispose()
+  })
+
+  it('normalizes each HeadersInit form and observes an already-aborted signal', async () => {
+    const fake = createFakeBridge()
+    const client = new DesktopApiClient(fake.bridge)
+    const controller = new AbortController()
+    controller.abort()
+    const pending = [
+      client.transport(new URL('http://dsh.internal/api/a')),
+      client.transport(new URL('http://dsh.internal/api/b'), { headers: new Headers({ Alpha: 'one' }) }),
+      client.transport(new URL('http://dsh.internal/api/c'), { headers: [['Beta', 'two']], signal: controller.signal }),
+    ]
+    await vi.waitFor(() => { if (fake.requests.length !== 3) throw new Error('requests incomplete') })
+    expect(fake.requests.map(request => request.headers)).toEqual([
+      {},
+      { alpha: 'one' },
+      { Beta: 'two' },
+    ])
+    expect(fake.aborts).toEqual([fake.requests[2]!.id])
+    for (const request of fake.requests) fake.fail({ id: request.id, message: 'done' })
+    await Promise.all(pending.map(request => expect(request).rejects.toThrow('done')))
+    client.dispose()
+  })
+
+  it.each([
+    { reason: new Error('request failed'), message: 'request failed' },
+    { reason: 'non-error rejection', message: 'non-error rejection' },
+  ])('normalizes bridge request rejection: $message', async ({ reason, message }) => {
+    const fake = createFakeBridge()
+    const client = new DesktopApiClient({
+      ...fake.bridge,
+      request: vi.fn().mockRejectedValue(reason),
+    })
+    await expect(client.transport(new URL('http://dsh.internal/api/x'))).rejects.toThrow(message)
+    client.dispose()
+  })
+
+  it('makes disposal idempotent and rejects new requests afterward', async () => {
+    const fake = createFakeBridge()
+    const client = new DesktopApiClient(fake.bridge)
+    client.dispose()
+    client.dispose()
+    await expect(client.transport(new URL('http://dsh.internal/api/x')))
+      .rejects.toThrow('desktop carrier disposed')
   })
 })

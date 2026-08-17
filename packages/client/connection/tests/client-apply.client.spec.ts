@@ -56,9 +56,14 @@ afterEach(() => {
   else globalThis.WebSocket = originalWebSocket
 })
 
-async function mount(): Promise<ConnectionHandle> {
+async function mountContext(): Promise<Context> {
   const ctx = new Context()
   await ctx.plugin({ apply, inject: [] })
+  return ctx
+}
+
+async function mount(): Promise<ConnectionHandle> {
+  const ctx = await mountContext()
   const handle = ctx.get('connection') as ConnectionHandle | undefined
   if (handle === undefined) throw new Error('ctx.connection not provided')
   return handle
@@ -399,49 +404,63 @@ describe('connection client apply', () => {
   })
 
 
-describe('connection client apply (desktop)', () => {
-  const BRIDGE = {
-    request: async () => {},
-    abort: () => {},
-    onResponse: () => () => {},
-    onChunk: () => () => {},
-    onEnd: () => () => {},
-    onError: () => () => {},
-  }
+  describe('connection client apply (desktop)', () => {
+    const BRIDGE = {
+      request: async () => {},
+      abort: () => {},
+      onResponse: () => () => {},
+      onChunk: () => () => {},
+      onEnd: () => () => {},
+      onError: () => () => {},
+    }
 
-  it('selects the DesktopApiClient when __DSH_DESKTOP__ is present', async () => {
-    ;(globalThis as Record<string, unknown>).__DSH_DESKTOP__ = BRIDGE
-    const handle = await mount()
-    expect(handle.api).toBeInstanceOf(DesktopApiClient)
-    expect(handle.isLoopback).toBe(true)
-  })
+    it('selects the DesktopApiClient when __DSH_DESKTOP__ is present', async () => {
+      ;(globalThis as Record<string, unknown>).__DSH_DESKTOP__ = BRIDGE
+      const handle = await mount()
+      expect(handle.api).toBeInstanceOf(DesktopApiClient)
+      expect(handle.isLoopback).toBe(true)
+    })
 
-  it('routes generic RPC calls through the desktop bridge request (not globalThis.fetch)', async () => {
-    const requests: { id: string }[] = []
-    const errorListeners = new Set<(m: { id: string; message: string }) => void>()
+    it('routes generic RPC calls through the desktop bridge request (not globalThis.fetch)', async () => {
+      const requests: { id: string }[] = []
+      const errorListeners = new Set<(m: { id: string; message: string }) => void>()
     ;(globalThis as Record<string, unknown>).__DSH_DESKTOP__ = {
-      ...BRIDGE,
-      request: async (message: { id: string }) => { requests.push(message) },
-      onError: (listener: (m: { id: string; message: string }) => void) => {
-        errorListeners.add(listener)
-        return () => { errorListeners.delete(listener) }
-      },
-    }
-    const handle = await mount()
-    const original = globalThis.fetch
-    globalThis.fetch = vi.fn().mockRejectedValue(new Error('must not hit web fetch'))
-    try {
-      const pending = handle.rpc.call('/api', 'goals/create', { title: 'x' })
-      await vi.waitFor(() => { if (requests.length === 0) throw new Error('no bridge request') })
-      expect(globalThis.fetch).not.toHaveBeenCalled()
-      // Use the wire.id (the bridge's internal request id, not the rpcId in the body)
-      const wireId = requests[0]!.id
-      for (const listener of errorListeners) listener({ id: wireId, message: 'no responder' })
-      await expect(pending).rejects.toThrow('no responder')
-    } finally {
-      globalThis.fetch = original
-    }
+        ...BRIDGE,
+        request: async (message: { id: string }) => { requests.push(message) },
+        onError: (listener: (m: { id: string; message: string }) => void) => {
+          errorListeners.add(listener)
+          return () => { errorListeners.delete(listener) }
+        },
+      }
+      const handle = await mount()
+      const original = globalThis.fetch
+      globalThis.fetch = vi.fn().mockRejectedValue(new Error('must not hit web fetch'))
+      try {
+        const pending = handle.rpc.call('/api', 'goals/create', { title: 'x' })
+        await vi.waitFor(() => { if (requests.length === 0) throw new Error('no bridge request') })
+        expect(globalThis.fetch).not.toHaveBeenCalled()
+        // Use the wire.id (the bridge's internal request id, not the rpcId in the body)
+        const wireId = requests[0]!.id
+        for (const listener of errorListeners) listener({ id: wireId, message: 'no responder' })
+        await expect(pending).rejects.toThrow('no responder')
+      } finally {
+        globalThis.fetch = original
+      }
+    })
+
+    it('disposes the desktop carrier with the owning context', async () => {
+      const detach = vi.fn()
+      ;(globalThis as Record<string, unknown>).__DSH_DESKTOP__ = {
+        ...BRIDGE,
+        onResponse: () => detach,
+        onChunk: () => detach,
+        onEnd: () => detach,
+        onError: () => detach,
+      }
+      const ctx = await mountContext()
+      await ctx.fiber.dispose()
+      expect(detach).toHaveBeenCalledTimes(4)
+    })
   })
-})
 
 })

@@ -44,17 +44,17 @@ function bridgeOver(fetch: (request: Request) => Promise<Response>): DesktopFetc
       for (const l of channels.end) l({ id: wire.id })
     },
     abort: () => {},
-    onResponse: l => { channels.response.add(l); return () => { channels.response.delete(l) } },
-    onChunk: l => { channels.chunk.add(l); return () => { channels.chunk.delete(l) } },
-    onEnd: l => { channels.end.add(l); return () => { channels.end.delete(l) } },
-    onError: l => { channels.error.add(l); return () => { channels.error.delete(l) } },
+    onResponse: (l) => { channels.response.add(l); return () => { channels.response.delete(l) } },
+    onChunk: (l) => { channels.chunk.add(l); return () => { channels.chunk.delete(l) } },
+    onEnd: (l) => { channels.end.add(l); return () => { channels.end.delete(l) } },
+    onError: (l) => { channels.error.add(l); return () => { channels.error.delete(l) } },
   }
 }
 
 describe('desktop boot snapshot', () => {
   it('boots and answers host.describe + session.list over the IPC wire', { timeout: 120_000 }, async () => {
     const handle = await bootDesktopHost({ home, frontendIndexPath: '/tmp/index.html' })
-    const client = new DesktopApiClient(bridgeOver(handle.runtime.fetch))
+    const client = new DesktopApiClient(bridgeOver(request => handle.runtime.fetch(request)))
     const described = await client.host.describe({})
     expect(described.result.ok).toBe(true)
     const listed = await client.sessions.list({})

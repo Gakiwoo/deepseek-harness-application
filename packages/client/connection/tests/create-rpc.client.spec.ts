@@ -6,7 +6,8 @@ import { createConnectionRpc, createWebConnectionRpc } from '../src/client/rpc.t
 function okFetch(body: unknown): (input: URL, init?: RequestInit) => Promise<Response> {
   return async (_input, init) => {
     expect(init?.method).toBe('POST')
-    const sent = JSON.parse(String(init?.body)) as { rpcId: string; method: string }
+    if (typeof init?.body !== 'string') throw new Error('expected a JSON string body')
+    const sent = JSON.parse(init.body) as { rpcId: string; method: string }
     return new Response(JSON.stringify({ type: 'server-response', rpcId: sent.rpcId, result: { ok: true, value: body } }), {
       status: 200, headers: { 'content-type': 'application/json' },
     })

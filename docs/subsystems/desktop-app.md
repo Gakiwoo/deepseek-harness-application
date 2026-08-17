@@ -14,6 +14,14 @@ Source: [`packages/bundle/desktop-app/src/index.ts`](../../packages/bundle/deskt
 
 The renderer runs under the `dsh://` custom protocol (an opaque origin). Its only privileged surface is the preload-exposed `window.__DSH_DESKTOP__` bridge, which ships fetch requests over six fixed IPC channels (`request` upstream; `response`/`chunk`/`end`/`error` downstream; `abort` upstream). The renderer's `DesktopApiClient` — a third `AbstractApiClient` carrier alongside fixture and web — moves bytes across that bridge and rebuilds a streaming WHATWG `Response`. No new protocol, no WebSocket, no shared port: the renderer talks to the same process over a private channel.
 
+## Native carrier lifecycle
+
+The Electron main process owns one window, one tray, and one IPC pump; the Electron-independent Host handle continues to own the Cordis tree. An ordinary window close is cancelled and hides the window without touching the Host. The tray Show command, a tray double-click, a second application launch, and the operating-system activation event all restore and focus the same window. `window-all-closed` does not end the process.
+
+Main-frame navigation stays inside the exact `dsh://app` authority. Child-window requests are always denied; only `http:`, `https:`, and `mailto:` URLs are delegated to the operating system, and native opener failures are reported without becoming unhandled rejections.
+
+Tray Quit, operating-system quit, `SIGINT`, `SIGTERM`, Host exit requests, and fatal shell failures enter one shutdown controller. It removes the IPC pump, disposes the Host, then destroys native resources. The first request receives up to five seconds for orderly disposal; disposal rejection or timeout turns a clean request into exit code `1`, and a repeated request exits immediately.
+
 ## The service
 
 `desktopRuntime` (defined in [`packages/bundle/desktop-app/src/index.ts`](../../packages/bundle/desktop-app/src/index.ts)) exposes the four reads above; signatures are in the generated [service catalog](#ctxdesktopruntime--desktopruntime). The glue also registers the `app:desktop-surface` prompt section, orienting newly created sessions to the desktop window (no URL, port, or browser tab; no hot reload; native dialogs available through the usual host tools).

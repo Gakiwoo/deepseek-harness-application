@@ -35,6 +35,7 @@ export const coverageExemptHeavySuites: readonly CoverageExemptSuite[] = [
     exclude: 'packages/typert/generator/tests/**',
   },
   // Real child-process fixtures over scripts/ sources, which coverage never measures.
+  { filter: 'scripts/gen-client-catalog.spec.ts', exclude: 'scripts/gen-client-catalog.spec.ts' },
   { filter: 'scripts/install-lefthook.spec.ts', exclude: 'scripts/install-lefthook.spec.ts' },
   { filter: 'scripts/oxlint-contract.spec.ts', exclude: 'scripts/oxlint-contract.spec.ts' },
   { filter: 'scripts/change-scope.spec.ts', exclude: 'scripts/change-scope.spec.ts' },

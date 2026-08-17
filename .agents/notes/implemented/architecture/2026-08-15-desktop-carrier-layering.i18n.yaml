@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-08-15-desktop-carrier-layering.md
-2026-08-15-desktop-carrier-layering.md: c9111648e088c3a73c1c74b1884fd3c4d8027233
-2026-08-15-desktop-carrier-layering.zh.md: 53086bafed98eec6dd9f391c94612b7625544abf
+2026-08-15-desktop-carrier-layering.md: b6ed62e725a43d99c977d90d2408091f6a0ae4a4
+2026-08-15-desktop-carrier-layering.zh.md: 6d837edd79a7e54ec71f3aef99abb3ef815063e0

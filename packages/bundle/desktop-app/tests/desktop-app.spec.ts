@@ -34,6 +34,19 @@ function fakeClientModules(graph: unknown): { graph(): unknown; clientPath(id: s
 }
 
 describe('desktop-app runtime glue', () => {
+  it('uses config defaults and dispatches runtime fetches', async () => {
+    const ctx = new Context()
+    ctx.provide('connection', fakeConnection())
+    ctx.provide('clientModules', fakeClientModules({ entries: [] }))
+    apply(ctx)
+    await ctx.plugin(SystemPrompt, { persona: '' })
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(ctx.desktopRuntime.frontendIndex()).toBe('')
+    const response = await ctx.desktopRuntime.fetch(new Request('http://dsh.internal/api/ok'))
+    expect(response.status).toBe(200)
+    await ctx.fiber.dispose()
+  })
+
   it('provides the desktopRuntime face over connection + clientModules', async () => {
     const ctx = new Context()
     const graph = { entries: [] }

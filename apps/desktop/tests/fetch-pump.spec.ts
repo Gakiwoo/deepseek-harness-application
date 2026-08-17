@@ -2,24 +2,23 @@
 
 import { describe, expect, it, vi } from 'vitest'
 import {
-  DSH_FETCH_ABORT, DSH_FETCH_CHUNK, DSH_FETCH_END, DSH_FETCH_ERROR,
+  DSH_FETCH_ABORT, DSH_FETCH_CHUNK, DSH_FETCH_END,
   DSH_FETCH_REQUEST, DSH_FETCH_RESPONSE,
-} from '@deepseek-ai/dsh-client-connection/client/desktop-bridge'
-import type { DesktopFetchWireRequest } from '@deepseek-ai/dsh-client-connection/client/desktop-bridge'
+} from '@deepseek-ai/dsh-client-connection/desktop-bridge'
 import { mountFetchPump, type IpcInvokeRegistrar, type IpcSender } from '../src/host-glue/fetch-pump.ts'
 
 /** In-memory ipc face: captures handlers, lets the test trigger them. */
 function fakeIpc(): {
   ipc: IpcInvokeRegistrar
   sent: { channel: string; message: unknown }[]
-  trigger(channel: string, raw: unknown): unknown
+  trigger: (channel: string, raw: unknown) => unknown
 } {
   const handlers = new Map<string, (raw: unknown) => unknown>()
   const sent: { channel: string; message: unknown }[] = []
   return {
     ipc: {
       handle: (channel, listener) => { handlers.set(channel, listener) },
-      removeHandler: channel => { handlers.delete(channel) },
+      removeHandler: (channel) => { handlers.delete(channel) },
     },
     sent,
     trigger: (channel, raw) => handlers.get(channel)?.(raw),
@@ -41,7 +40,7 @@ describe('mountFetchPump', () => {
     await trigger(DSH_FETCH_REQUEST, {
       id: 'r1', url: 'dsh://app/api/host.describe', method: 'POST',
       headers: { 'content-type': 'application/json' }, body: '{}',
-    } as DesktopFetchWireRequest)
+    })
 
     expect(fetch).toHaveBeenCalledTimes(1)
     const requested = fetch.mock.calls[0]?.[0]
@@ -79,7 +78,7 @@ describe('mountFetchPump', () => {
     await trigger(DSH_FETCH_REQUEST, {
       id: 'r2', url: 'dsh://app/api/session.list', method: 'POST',
       headers: {}, body: null,
-    } as DesktopFetchWireRequest)
+    })
     await new Promise(resolve => setTimeout(resolve, 0))
     expect(signal).toBeDefined()
     expect(signal?.aborted).toBe(false)
@@ -100,7 +99,7 @@ describe('mountFetchPump', () => {
     await trigger(DSH_FETCH_REQUEST, {
       id: 'r3', url: 'dsh://app/api/x', method: 'GET',
       headers: {}, body: null,
-    } as DesktopFetchWireRequest)
+    })
     await new Promise(resolve => setTimeout(resolve, 0))
     pump.dispose()
     // The in-flight request's AbortSignal was aborted by dispose.
@@ -109,8 +108,8 @@ describe('mountFetchPump', () => {
     await trigger(DSH_FETCH_REQUEST, {
       id: 'r4', url: 'dsh://app/api/y', method: 'GET',
       headers: {}, body: null,
-    } as DesktopFetchWireRequest)
+    })
     await new Promise(resolve => setTimeout(resolve, 0))
-    expect(sent.some(s => s.channel === DSH_FETCH_RESPONSE && (s.message as { id: string }).id === 'r4')).toBe(false)
+    expect(sent.some(s => s.channel === DSH_FETCH_RESPONSE)).toBe(false)
   })
 })

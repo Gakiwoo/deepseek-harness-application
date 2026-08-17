@@ -102,7 +102,7 @@ export async function bootDesktopHost(options: BootDesktopHostOptions): Promise<
     hostCtx.provide(DSH_LAUNCH_ENVIRONMENT_KEY, loadLayeredEnv(NAME))
     // The bounded exit request is a launcher fact available to every app
     // plugin that injects the argument snapshot.
-    provideCmdline(hostCtx, { args: [], exit: code => void options.requestExit?.(code) })
+    provideCmdline(hostCtx, { args: [], exit: code =>  options.requestExit?.(code) })
   })
   assertDesktopTree(ctx)
   const runtime = ctx.desktopRuntime
