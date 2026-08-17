@@ -2,10 +2,10 @@
 
 import { describe, expect, it, vi } from 'vitest'
 import {
-  DSH_FETCH_ABORT, DSH_FETCH_CHUNK, DSH_FETCH_END, DSH_FETCH_ERROR,
+  DSH_FETCH_ABORT, DSH_FETCH_CHUNK, DSH_FETCH_END,
   DSH_FETCH_REQUEST, DSH_FETCH_RESPONSE,
-} from '@deepseek-ai/dsh-client-connection/client/desktop-bridge'
-import type { DesktopFetchWireRequest } from '@deepseek-ai/dsh-client-connection/client/desktop-bridge'
+} from '@deepseek-ai/dsh-client-connection/desktop-bridge'
+import type { DesktopFetchWireRequest } from '@deepseek-ai/dsh-client-connection/desktop-bridge'
 import { mountFetchPump, type IpcInvokeRegistrar, type IpcSender } from '../src/host-glue/fetch-pump.ts'
 
 /** In-memory ipc face: captures handlers, lets the test trigger them. */
@@ -19,7 +19,7 @@ function fakeIpc(): {
   return {
     ipc: {
       handle: (channel, listener) => { handlers.set(channel, listener) },
-      removeHandler: channel => { handlers.delete(channel) },
+      removeHandler: (channel) => { handlers.delete(channel) },
     },
     sent,
     trigger: (channel, raw) => handlers.get(channel)?.(raw),

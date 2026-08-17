@@ -49,7 +49,37 @@ function mountDshProtocol(runtime) {
 // src/window.ts
 var import_electron2 = require("electron");
 var import_node_path = require("node:path");
-function createMainWindow(resourcesDir) {
+var EXTERNAL_PROTOCOLS = /* @__PURE__ */ new Set(["http:", "https:", "mailto:"]);
+function showDesktopWindow(window) {
+  if (window.isDestroyed()) return;
+  if (window.isMinimized()) window.restore();
+  window.show();
+  window.focus();
+}
+function handleDesktopWindowClose(window, event, quitting) {
+  if (quitting) return;
+  event.preventDefault();
+  if (!window.isDestroyed()) window.hide();
+}
+function isDesktopNavigation(raw) {
+  try {
+    const url = new URL(raw);
+    return url.protocol === "dsh:" && url.hostname === "app";
+  } catch {
+    return false;
+  }
+}
+function handleDesktopWindowOpen(raw, openExternal, report) {
+  try {
+    if (!EXTERNAL_PROTOCOLS.has(new URL(raw).protocol)) return { action: "deny" };
+    void openExternal(raw).catch(report);
+  } catch (error) {
+    if (error instanceof TypeError) return { action: "deny" };
+    report(error);
+  }
+  return { action: "deny" };
+}
+function createMainWindow(resourcesDir, isQuitting, reportExternalOpenError2) {
   const window = new import_electron2.BrowserWindow({
     width: 1280,
     height: 800,
@@ -65,16 +95,45 @@ function createMainWindow(resourcesDir) {
       nodeIntegration: false
     }
   });
+  const onReady = () => {
+    showDesktopWindow(window);
+  };
+  const onClose = (event) => {
+    handleDesktopWindowClose(window, event, isQuitting());
+  };
+  const onFrameNavigate = (event) => {
+    if (event.isMainFrame && !isDesktopNavigation(event.url)) event.preventDefault();
+  };
+  const onRedirect = (event) => {
+    if (event.isMainFrame && !isDesktopNavigation(event.url)) event.preventDefault();
+  };
   void window.loadFile((0, import_node_path.join)(resourcesDir, "splash.html"));
-  window.once("ready-to-show", () => {
-    window.show();
-  });
-  window.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith("dsh://")) return { action: "deny" };
-    void import_electron2.shell.openExternal(url);
-    return { action: "deny" };
-  });
-  return window;
+  window.once("ready-to-show", onReady);
+  window.on("close", onClose);
+  window.webContents.on("will-frame-navigate", onFrameNavigate);
+  window.webContents.on("will-redirect", onRedirect);
+  window.webContents.setWindowOpenHandler(({ url }) => handleDesktopWindowOpen(
+    url,
+    (externalUrl) => import_electron2.shell.openExternal(externalUrl),
+    reportExternalOpenError2
+  ));
+  let disposed = false;
+  return {
+    window,
+    show: () => {
+      showDesktopWindow(window);
+    },
+    dispose() {
+      if (disposed) return;
+      disposed = true;
+      window.off("ready-to-show", onReady);
+      window.off("close", onClose);
+      window.webContents.off("will-frame-navigate", onFrameNavigate);
+      window.webContents.off("will-redirect", onRedirect);
+      window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+      if (!window.isDestroyed()) window.destroy();
+    }
+  };
 }
 
 // ../../packages/client/connection/lib/types/client/desktop-bridge.js
@@ -165,7 +224,7 @@ if (!import_electron3.app.requestSingleInstanceLock()) {
   import_electron3.app.quit();
 } else {
   import_electron3.app.on("second-instance", () => {
-    state.window?.focus();
+    state.window?.show();
   });
   registerDshScheme();
   import_electron3.app.on("window-all-closed", () => {
@@ -180,7 +239,7 @@ async function main() {
   const resourcesDir = import_electron3.app.isPackaged ? process.resourcesPath : (0, import_node_path2.join)(import_electron3.app.getAppPath(), "resources");
   const hostBootPath = import_electron3.app.isPackaged ? (0, import_node_path2.join)(process.resourcesPath, "host", "node_modules", "@deepseek-ai", "dsh-desktop-app", "lib", "host-boot.js") : (0, import_node_path2.join)(import_electron3.app.getAppPath(), "node_modules", "@deepseek-ai", "dsh-desktop-app", "lib", "host-boot.js");
   const { bootDesktopHost } = await import((0, import_node_url.pathToFileURL)(hostBootPath).href);
-  state.window = createMainWindow(resourcesDir);
+  state.window = createMainWindow(resourcesDir, () => state.quitting, reportExternalOpenError);
   try {
     state.host = await bootDesktopHost({
       frontendIndexPath: (0, import_node_path2.join)(resourcesDir, "frontend", "index.html"),
@@ -189,7 +248,7 @@ async function main() {
       }
     });
   } catch (error) {
-    await showError(state.window, error);
+    await showError(state.window.window, error);
     import_electron3.app.exit(1);
     return;
   }
@@ -199,7 +258,7 @@ ${String(reason)}`);
     import_electron3.app.exit(1);
   });
   mountDshProtocol(state.host.runtime);
-  state.pump = mountFetchPump(ipcFace(), state.window.webContents, state.host.runtime.fetch);
+  state.pump = mountFetchPump(ipcFace(), state.window.window.webContents, state.host.runtime.fetch);
   import_electron3.app.on("before-quit", (event) => {
     if (state.quitting || state.host === void 0) return;
     state.quitting = true;
@@ -214,11 +273,17 @@ ${String(reason)}`);
   await loadReady();
 }
 async function loadReady() {
-  const window = state.window ?? createMainWindow((0, import_node_path2.join)(import_electron3.app.getAppPath(), "resources"));
-  state.window = window;
+  const host = state.host;
+  if (host === void 0) throw new Error("desktop: cannot load the renderer before the host is ready");
+  const handle = state.window ?? createMainWindow(
+    (0, import_node_path2.join)(import_electron3.app.getAppPath(), "resources"),
+    () => state.quitting,
+    reportExternalOpenError
+  );
+  state.window = handle;
   state.pump?.dispose();
-  state.pump = mountFetchPump(ipcFace(), window.webContents, state.host.runtime.fetch);
-  await window.loadURL("dsh://app/");
+  state.pump = mountFetchPump(ipcFace(), handle.window.webContents, host.runtime.fetch);
+  await handle.window.loadURL("dsh://app/");
 }
 async function showError(window, error) {
   const message = error instanceof Error ? `${error.message}
@@ -231,5 +296,9 @@ ${String(error.stack ?? "")}` : String(error);
 function fatal(error) {
   import_electron3.dialog.showErrorBox("DeepSeek Harness", error instanceof Error ? error.stack ?? error.message : String(error));
   import_electron3.app.exit(1);
+}
+function reportExternalOpenError(error) {
+  import_electron3.dialog.showErrorBox("DeepSeek Harness", `Unable to open external link:
+${String(error)}`);
 }
 //# sourceMappingURL=main.js.map
