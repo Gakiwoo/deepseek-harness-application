@@ -20,30 +20,38 @@ function rejectStandaloneServe(): Plugin {
 
 /**
  * Vendor-chunk membership, by exact npm package name — the heavy render
- * families (math, highlight, markdown) that change only on dependency bumps.
- * Only packages workspace code imports DIRECTLY need listing: their private
- * transitive dependencies (oniguruma machinery, character tables, …) are
- * imported solely by these and rollup's chunk coloring pulls them into
- * vendor automatically. A dependency shared with index-side code falls back
- * to index — a few kB of dilution, never a correctness problem. Anything not
- * listed (react family, the vendored cordis workspace, tiny helpers like
- * anser/clsx, all workspace code) stays in the default `index` chunk, so
- * editing shell code re-hashes only index and returning clients keep the
- * cached vendor chunk.
+ * families (math, highlight, markdown) that change only on dependency bumps,
+ * plus the React runtime. Each family is its own chunk: a dependency bump
+ * re-hashes only that family, and a returning client reuses every other
+ * cached chunk. Only packages workspace code imports DIRECTLY need listing:
+ * their private transitive dependencies (oniguruma machinery, character
+ * tables, …) are imported solely by these and rollup's chunk coloring pulls
+ * them into the owning vendor chunk automatically. A dependency shared with
+ * index-side code falls back to index — a few kB of dilution, never a
+ * correctness problem. Everything else (the vendored cordis workspace, tiny
+ * helpers like anser/clsx, all workspace code) stays in the default `index`
+ * chunk, so editing shell code re-hashes only index and returning clients
+ * keep their cached vendor chunks.
  *
  * Every member must be React-free. A package that
  * imports react/jsx-runtime must never be listed — rollup folds a module
  * shared between the entry and a manual chunk into the manual chunk, so one
- * react-importing member would drag the single shared react copy into
- * vendor. The React side of markdown/math rendering is workspace code and
- * rides index.
+ * react-importing member would drag the single shared react copy into that
+ * vendor chunk (and out of vendor-react). The React side of markdown/math
+ * rendering is workspace code and rides index.
  */
-const VENDOR_PACKAGES: ReadonlySet<string> = new Set([
+const MATH_VENDOR_PACKAGES: ReadonlySet<string> = new Set([
   // math
   'katex',
+])
+
+const HIGHLIGHT_VENDOR_PACKAGES: ReadonlySet<string> = new Set([
   // syntax highlight (@shikijs/langs is handled separately below —
   // lazy grammars must not land here)
   'shiki',
+])
+
+const MARKDOWN_VENDOR_PACKAGES: ReadonlySet<string> = new Set([
   // markdown parse pipeline (micromark/mdast; the incremental React renderer
   // over it is workspace code)
   'mdast-util-from-markdown',
@@ -61,11 +69,23 @@ const VENDOR_PACKAGES: ReadonlySet<string> = new Set([
 ])
 
 /**
+ * The React runtime (react/react-dom/scheduler, including the jsx-runtime
+ * entry that @vitejs/plugin-react compiles to). Split from index so a React
+ * upgrade re-hashes only this chunk while shell code changes keep re-hashing
+ * only index — the two change on independent cadences.
+ */
+const REACT_VENDOR_PACKAGES: ReadonlySet<string> = new Set([
+  'react',
+  'react-dom',
+  'scheduler',
+])
+
+/**
  * Boot grammars statically imported by ui-primitives' highlight.ts
  * (`@shikijs/langs/typescript` → `dist/typescript.mjs`, etc.). They live in
  * the same package as the lazy read-card grammars, but unlike those they are
- * part of the initial load and belong in the vendor chunk; the lazy ones must
- * stay unassigned so each keeps its own on-demand chunk.
+ * part of the initial load and belong in the highlight vendor chunk; the lazy
+ * ones must stay unassigned so each keeps its own on-demand chunk.
  */
 const BOOT_GRAMMAR_FILES: readonly string[] = [
   'dist/typescript.mjs',
@@ -99,18 +119,22 @@ export default defineConfig(({ mode }) => ({
     sourcemap: true,
     rollupOptions: {
       output: {
-        // Output layout: the two main chunks stay at assets/ root; lazy
-        // @shikijs/langs grammar chunks group under assets/langs/; fonts
-        // (all KaTeX faces referenced by vendor.css) group under
+        // Output layout: index and the vendor-family chunks stay at assets/
+        // root; lazy @shikijs/langs grammar chunks group under assets/langs/;
+        // fonts (all KaTeX faces referenced by vendor-math.css) group under
         // assets/fonts/. Sourcemaps need no arrangement: rollup writes each
         // .map next to its js and references it by bare relative filename.
         chunkFileNames(chunk): string {
           // Grammar chunks are recognized by their member modules, not the
           // facade: shared embedded-grammar chunks (e.g. html+javascript,
           // split out because php/ruby/mdx embed them) have no facade at all.
-          // index and vendor are excluded by name — vendor legitimately
-          // carries the three boot grammars.
-          if (chunk.name === 'index' || chunk.name === 'vendor') return 'assets/[name]-[hash].js'
+          // The named main chunks are excluded by name — vendor-highlight
+          // legitimately carries the three boot grammars.
+          if (chunk.name === 'index'
+            || chunk.name === 'vendor-react'
+            || chunk.name === 'vendor-math'
+            || chunk.name === 'vendor-highlight'
+            || chunk.name === 'vendor-markdown') return 'assets/[name]-[hash].js'
           const isLangChunk = chunk.moduleIds.some(id => id.includes('/node_modules/@shikijs/langs/'))
           return isLangChunk ? 'assets/langs/[name]-[hash].js' : 'assets/[name]-[hash].js'
         },
@@ -123,9 +147,13 @@ export default defineConfig(({ mode }) => ({
           const pkg = npmPackageOf(id)
           if (pkg === undefined) return undefined // workspace + vendored cordis: index
           if (pkg === '@shikijs/langs') {
-            return BOOT_GRAMMAR_FILES.some(file => id.endsWith(`/${file}`)) ? 'vendor' : undefined
+            return BOOT_GRAMMAR_FILES.some(file => id.endsWith(`/${file}`)) ? 'vendor-highlight' : undefined
           }
-          return VENDOR_PACKAGES.has(pkg) ? 'vendor' : undefined
+          if (REACT_VENDOR_PACKAGES.has(pkg)) return 'vendor-react'
+          if (MATH_VENDOR_PACKAGES.has(pkg)) return 'vendor-math'
+          if (HIGHLIGHT_VENDOR_PACKAGES.has(pkg)) return 'vendor-highlight'
+          if (MARKDOWN_VENDOR_PACKAGES.has(pkg)) return 'vendor-markdown'
+          return undefined
         },
       },
     },
