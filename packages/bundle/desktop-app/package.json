@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-desktop-app",
   "description": "The dsh desktop-surface bundle: the desktop patch layer over dsh-base plus the runtime glue plugin (IPC fetch carrier face, boot manifest, desktop-surface prompt) and the Electron-free host boot used by the desktop shell",
-  "version": "0.1.0-rc.5",
+  "version": "0.1.0-rc.6",
   "publishConfig": {
     "access": "public"
   },

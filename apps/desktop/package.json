@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-desktop",
   "description": "DeepSeek Harness desktop shell (Electron): window, dsh:// protocol, IPC fetch pump over the packaged host closure",
-  "version": "0.1.0-rc.5",
+  "version": "0.1.0-rc.6",
   "private": true,
   "license": "MIT",
   "main": "out/main.js",
