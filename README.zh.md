@@ -24,15 +24,17 @@
 
 ## 安装
 
-桌面产物由仓库的 [Build desktop 工作流](.github/workflows/build-desktop.yml) 生成并作为 GitHub Actions 工件上传，每个平台一个：
+预构建产物发布在 [GitHub Releases](https://github.com/Gakiwoo/deepseek-harness-application/releases) 页面。每个版本每个平台一个产物（最新：`dsh-v0.1.0-rc.6`）：
 
-| 平台 | 架构 | 下载 | 工件 |
-|---|---|---|---|
-| macOS | arm64 | dmg、zip | `DeepSeek-Harness-<version>-mac-arm64` |
-| macOS | x64 | dmg、zip | `DeepSeek-Harness-<version>-mac-x64` |
-| Windows | x64 | NSIS、zip | `DeepSeek-Harness-<version>-win-x64` |
+| 平台 | 架构 | 下载 |
+|---|---|---|
+| macOS | arm64 | dmg、zip |
+| macOS | x64 | dmg、zip |
+| Windows | x64 | NSIS 安装器、zip |
 
-应用会捆绑完整的宿主闭包与 Electron 运行时；每个平台产物体积预计约 250–350 MB。
+每个版本也由仓库的 [Build desktop 工作流](.github/workflows/build-desktop.yml) 复现构建，并以 GitHub Actions 运行工件的形式上传相同产物。Web 表面单独以可自托管的压缩包（`dsh-web-<version>.zip`）发布。
+
+应用会捆绑完整的宿主闭包与 Electron 运行时；每个平台产物体积预计约 180–350 MB。
 
 ### 未签名产物
 
@@ -57,6 +59,7 @@ pnpm run pack:desktop
 - [桌面应用](docs/subsystems/desktop-app.md) —— 桌面子系统契约与载体分层。
 - [架构](docs/architecture.md) —— 基于插件的框架如何组合。
 - [开发](docs/development.md) —— 贡献者环境与日常流程。
+- [事故复盘 0005](docs/postmortem/0005-startup-failure-assessment.md) —— 启动故障根因分析与修复。
 
 在本仓库内工作的 agent 请遵循 [AGENTS.md](AGENTS.md)。
 

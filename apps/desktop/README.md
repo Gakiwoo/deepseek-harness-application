@@ -34,4 +34,4 @@ Local and CI artifacts are **unsigned**. On macOS, Gatekeeper blocks a downloade
 
 ## Expected size
 
-The app bundles a full host closure plus the Electron runtime; expect roughly 250–350 MB per platform artifact.
+The app bundles a full host closure plus the Electron runtime; expect roughly 180–350 MB per platform artifact (measured at 0.1.0-rc.6: 179–247 MB).

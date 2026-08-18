@@ -24,15 +24,17 @@ A DeepSeek API key, configured in the application settings on first launch. The 
 
 ## Install
 
-Desktop artifacts are produced by the repository's [Build desktop workflow](.github/workflows/build-desktop.yml) and uploaded as GitHub Actions artifacts, one per platform:
+Pre-built artifacts are published to the [GitHub Releases](https://github.com/Gakiwoo/deepseek-harness-application/releases) page. Each release ships one artifact per platform (latest: `dsh-v0.1.0-rc.6`):
 
-| Platform | Arch | Downloads | Artifact |
-|---|---|---|---|
-| macOS | arm64 | dmg, zip | `DeepSeek-Harness-<version>-mac-arm64` |
-| macOS | x64 | dmg, zip | `DeepSeek-Harness-<version>-mac-x64` |
-| Windows | x64 | NSIS, zip | `DeepSeek-Harness-<version>-win-x64` |
+| Platform | Arch | Downloads |
+|---|---|---|
+| macOS | arm64 | dmg, zip |
+| macOS | x64 | dmg, zip |
+| Windows | x64 | NSIS installer, zip |
 
-The app bundles a full host closure plus the Electron runtime; expect roughly 250–350 MB per artifact.
+Every release is also reproduced by the repository's [Build desktop workflow](.github/workflows/build-desktop.yml), which uploads the same artifacts as GitHub Actions run artifacts. The web surface ships separately as a self-hostable bundle (`dsh-web-<version>.zip`).
+
+The app bundles a full host closure plus the Electron runtime; expect roughly 180–350 MB per artifact.
 
 ### Unsigned artifacts
 
@@ -57,6 +59,7 @@ For a live development loop instead of a packaged app, run `pnpm run dev:desktop
 - [Desktop app](docs/subsystems/desktop-app.md) — the desktop subsystem contract and carrier layering.
 - [Architecture](docs/architecture.md) — how the plugin-based harness is composed.
 - [Development](docs/development.md) — contributor setup and daily workflow.
+- [Post-mortem 0005](docs/postmortem/0005-startup-failure-assessment.md) — startup failure root cause and the fix.
 
 For agents working in this repository, follow [AGENTS.md](AGENTS.md).
 
