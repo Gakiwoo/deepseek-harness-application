@@ -2,6 +2,12 @@ appId: ai.deepseek.harness
 productName: DeepSeek Harness
 directories:
   output: dist
+  buildResources: build
+# The official DeepSeek whale glyph (RGB #4D6BFE): build/icon.icns (macOS),
+# build/icon.ico (Windows), build/icon.png (Linux). electron-builder reads
+# the platform file from buildResources automatically; the explicit win
+# setting is a no-op fallback for older builders.
+icon: build/icon
 # The only Electron-ABI native dependency is node-pty, and it lives in
 # resources/host, rebuilt for the Free Electron ABI by pack-desktop.ts step 4
 # BEFORE electron-builder runs. electron-builder's own npmRebuild would
