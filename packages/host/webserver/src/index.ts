@@ -214,9 +214,27 @@ export class WebServer extends Service {
     })
 
     await new Promise<void>((resolve, reject) => {
-      this.server.once('error', reject)
+      // A fixed-port collision is the one listen failure worth diagnosing:
+      // rethrow with an actionable message (config.port 0 never collides —
+      // the OS assigns). The errno code stays in the message so callers and
+      // tests can keep matching on it; the original error rides as `cause`.
+      // Every other listen error passes through unchanged, and the boot
+      // process reports the failed fiber either way. The package itself
+      // never prints; the message travels in the error.
+      const onListenError = (error: Error): void => {
+        if ((error as NodeJS.ErrnoException).code === 'EADDRINUSE') {
+          reject(new Error(
+            `webserver: EADDRINUSE — port ${this.config.port} on ${this.config.host} is already in use; `
+            + 'set the listen port to 0 to have the OS assign a free one',
+            { cause: error },
+          ))
+          return
+        }
+        reject(error)
+      }
+      this.server.once('error', onListenError)
       this.server.listen(this.config.port, this.config.host, () => {
-        this.server.off('error', reject)
+        this.server.off('error', onListenError)
         this.server.on('error', (err) => { this.ctx.logger.error(err) })
         this.listenedPort = (this.server.address() as AddressInfo).port
         resolve()
