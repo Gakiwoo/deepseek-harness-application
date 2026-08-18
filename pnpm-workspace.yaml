@@ -24,6 +24,21 @@ packages:
 # builds must resolve those matching names to this workspace's pinned sources.
 linkWorkspacePackages: true
 
+# Known benign workspace cycles. pnpm reports four cyclic workspace dependency
+# groups at install time; each is a runtime-single-direction edge plus
+# devDependencies/peerDependencies edges that tests legitimately need:
+#   - packages/api/*: client/connection ->(runtime) host/apiproxy ->(runtime)
+#     api/remotes ->(dev) api/gateway ->(dev) client/connection
+#   - packages/sandbox/*: sandbox-local ->(runtime) sandbox-windows-acl ->(dev) sandbox-local
+#   - packages/subagent/*: subagent-spawn-in-process <->(dev) tool-subagent
+#     (integration tests mount each other's real plugins via ctx.plugin)
+#   - vendor/*: cordis <->(peer) cordis-plugin-include / cordis-plugin-loader
+# pnpm resolves these through workspace symlinks to built output; full builds,
+# profile composition, and real boots are unaffected (verified). Breaking any
+# cycle requires extracting a shared test-harness package or an architecture
+# split (e.g. hoisting the connection<->apiproxy contract into a protocol
+# package) — both are structural changes outside routine maintenance.
+
 overrides:
   '@deepseek-ai/cosmokit': 'link:vendor/cosmokit'
   '@deepseek-ai/schemastery': 'link:vendor/schemastery'
