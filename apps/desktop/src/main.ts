@@ -1,5 +1,6 @@
 /** Desktop shell entry: one native lifecycle over the Host, window, tray, and IPC pump. */
 
+import { randomUUID } from 'node:crypto'
 import { app, dialog, ipcMain } from 'electron'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -12,6 +13,8 @@ import {
   type DesktopShutdown,
 } from './lifecycle.ts'
 import { mountDshProtocol, registerDshScheme } from './protocol.ts'
+import { recoverShellEnvironment } from './shell-environment.ts'
+import { beginStartup, commitStartup } from './startup-state.ts'
 import { createDesktopTray, electronTrayNative, type DesktopTrayHandle } from './tray.ts'
 import { createMainWindow, type DesktopWindowHandle } from './window.ts'
 import { mountFetchPump } from './host-glue/fetch-pump.ts'
@@ -86,6 +89,16 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 async function bootPrimaryInstance(shutdown: DesktopShutdown): Promise<void> {
+  const stateFile = join(app.getPath('userData'), 'startup-state.json')
+  const startup = beginStartup(stateFile, randomUUID())
+
+  // Finder-launched packaged apps inherit a minimal PATH; recover the login
+  // shell environment before anything spawns tool processes. Dev launches
+  // keep the terminal environment unless explicitly opted in.
+  await recoverShellEnvironment({
+    enabled: app.isPackaged || process.env.DSH_DESKTOP_SHELL_ENV === '1',
+  })
+
   const resourcesDir = app.isPackaged ? process.resourcesPath : join(app.getAppPath(), 'resources')
   const window = createMainWindow(
     resourcesDir,
@@ -125,6 +138,21 @@ async function bootPrimaryInstance(shutdown: DesktopShutdown): Promise<void> {
     request => host.runtime.fetch(request),
   )
   await window.window.loadURL('dsh://app/')
+  commitStartup(stateFile)
+  if (startup.recovered) {
+    process.stderr.write(`[desktop] previous launch ${startup.previousAttempt?.launchId ?? 'unknown'} did not complete\n`)
+    if (app.isPackaged) {
+      // The window may already be gone when the message box resolves; nothing
+      // to do about that, so the rejection is swallowed.
+      void dialog.showMessageBox(window.window, {
+        type: 'warning',
+        title: 'DeepSeek Harness',
+        message: 'The previous launch did not complete.',
+        detail: 'The previous launch exited before the window was ready, usually because it crashed or was force-quit. If this keeps happening, report it with the log files from the Harness home directory.',
+        buttons: ['OK'],
+      }).catch(() => {})
+    }
+  }
 }
 
 function reportFailure(title: string, error: unknown, shutdown: DesktopShutdown): void {
