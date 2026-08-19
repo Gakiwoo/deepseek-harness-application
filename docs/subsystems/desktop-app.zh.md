@@ -24,6 +24,8 @@ Electron 主进程拥有一个窗口、一个托盘和一个 IPC 泵；Electron 
 
 打包后的 POSIX 启动会在 boot 之前恢复登录 shell 环境：它以非交互方式运行用户的登录 shell 打印 `export -p`，`PATH` 取用其结果，白名单内的 locale/工具链/包管理器名称仅在启动环境缺失时导入，超时或失败则保留继承的环境（[`apps/desktop/src/shell-environment.ts`](../../apps/desktop/src/shell-environment.ts)）。每次启动都会在 Electron user data 下记录一个 pending 标记，只有渲染进程加载 `dsh://app/` 后才提升为 lastGood；残留的 pending 会让下次启动报告上次启动未完成（[`apps/desktop/src/startup-state.ts`](../../apps/desktop/src/startup-state.ts)）。
 
+主进程失败与非干净退出的渲染进程崩溃会在失败路径运行前，向 `$DSH_HOME/diagnostics` 写入带时间戳的 JSON 快照——失败原因与详情、运行时版本，以及 PATH 和解析后的 home 路径（[`apps/desktop/src/crash-evidence.ts`](../../apps/desktop/src/crash-evidence.ts)）；写入失败绝不会变成第二次失败。
+
 ## 服务
 
 `desktopRuntime`（定义于 [`packages/bundle/desktop-app/src/index.ts`](../../packages/bundle/desktop-app/src/index.ts)）暴露上述四个读取面；签名见生成的[服务目录](#ctxdesktopruntime--desktopruntime)。胶水还注册了 `app:desktop-surface` prompt section，把新建的会话引导到桌面窗口（没有 URL、端口或浏览器标签页，没有热重载，经常规宿主工具即可使用原生对话框）。

@@ -69,7 +69,7 @@ export function resolveShellPath(shell: string | undefined, shellExists: (path: 
 }
 
 /** The spawn surface used for capture; the default spawns with stdio pipes. */
-export type SpawnChild = (shell: string, argv: readonly string[]) => ChildProcess
+type SpawnChild = (shell: string, argv: readonly string[]) => ChildProcess
 
 export interface CaptureOptions {
   /** The login shell to run. */

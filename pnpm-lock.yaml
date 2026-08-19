@@ -365,6 +365,9 @@ importers:
       '@deepseek-ai/dsh-desktop-app':
         specifier: workspace:^
         version: link:../../packages/bundle/desktop-app
+      '@deepseek-ai/dsh-home-paths':
+        specifier: workspace:^
+        version: link:../../packages/util/home-paths
     devDependencies:
       electron:
         specifier: ^38.0.0

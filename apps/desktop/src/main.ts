@@ -13,6 +13,7 @@ import {
   type DesktopShutdown,
 } from './lifecycle.ts'
 import { mountDshProtocol, registerDshScheme } from './protocol.ts'
+import { buildCrashEvidence, crashEvidenceDir, writeCrashEvidence } from './crash-evidence.ts'
 import { recoverShellEnvironment } from './shell-environment.ts'
 import { beginStartup, commitStartup } from './startup-state.ts'
 import { createDesktopTray, electronTrayNative, type DesktopTrayHandle } from './tray.ts'
@@ -106,6 +107,10 @@ async function bootPrimaryInstance(shutdown: DesktopShutdown): Promise<void> {
     reportExternalOpenError,
   )
   state.window = window
+  window.window.webContents.on('render-process-gone', (_event, details) => {
+    if (details.reason === 'clean-exit') return
+    recordCrashEvidence(`renderer ${details.reason}`, `exitCode: ${details.exitCode}`)
+  })
   state.tray = createDesktopTray(
     electronTrayNative,
     process.platform,
@@ -157,9 +162,27 @@ async function bootPrimaryInstance(shutdown: DesktopShutdown): Promise<void> {
 
 function reportFailure(title: string, error: unknown, shutdown: DesktopShutdown): void {
   const message = error instanceof Error ? error.stack ?? error.message : String(error)
+  recordCrashEvidence(title, message)
   dialog.showErrorBox('DeepSeek Harness', `${title}:\n${message}`)
   process.stderr.write(`[desktop] ${title}: ${message}\n`)
   void shutdown.request(1)
+}
+
+/** Best-effort snapshot before the failure path runs; a write failure must not become a second failure. */
+function recordCrashEvidence(reason: string, detail: string): void {
+  try {
+    writeCrashEvidence(crashEvidenceDir(), buildCrashEvidence({
+      reason,
+      detail,
+      appVersion: app.getVersion(),
+      platform: process.platform,
+      arch: process.arch,
+      packaged: app.isPackaged,
+      env: process.env,
+    }))
+  } catch (error) {
+    process.stderr.write(`[desktop] crash evidence failed: ${String(error)}\n`)
+  }
 }
 
 function reportExternalOpenError(error: unknown): void {

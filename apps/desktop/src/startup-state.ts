@@ -13,7 +13,7 @@ import { randomUUID } from 'node:crypto'
 import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 
 /** One launch record: the launch id and the moment the launch began. */
-export interface StartupRecord {
+interface StartupRecord {
   launchId: string
   at: number
 }

@@ -25,6 +25,7 @@
   "dependencies": {
     "@deepseek-ai/dsh-client-connection": "workspace:^",
     "@deepseek-ai/dsh-desktop-app": "workspace:^",
-    "@deepseek-ai/dsh-client-modules": "workspace:^"
+    "@deepseek-ai/dsh-client-modules": "workspace:^",
+    "@deepseek-ai/dsh-home-paths": "workspace:^"
   }
 }

@@ -24,6 +24,8 @@ Tray Quit, operating-system quit, `SIGINT`, `SIGTERM`, Host exit requests, and f
 
 A packaged POSIX launch recovers the login-shell environment before boot: it runs the user's login shell non-interactively to print `export -p`, takes `PATH` from the result, imports allowlisted locale/toolchain/package-manager names only when the launching environment lacks them, and keeps the inherited environment on timeout or failure ([`apps/desktop/src/shell-environment.ts`](../../apps/desktop/src/shell-environment.ts)). Each launch records a pending marker under Electron user data before boot and promotes it to lastGood only after the renderer loads `dsh://app/`; a stale pending makes the next launch report that the previous one did not complete ([`apps/desktop/src/startup-state.ts`](../../apps/desktop/src/startup-state.ts)).
 
+Main-process failures and non-clean renderer crashes write a timestamped JSON snapshot — failure reason and detail, runtime versions, and PATH plus the resolved homes — to `$DSH_HOME/diagnostics` before the failure path runs ([`apps/desktop/src/crash-evidence.ts`](../../apps/desktop/src/crash-evidence.ts)); a write failure never turns into a second failure.
+
 ## The service
 
 `desktopRuntime` (defined in [`packages/bundle/desktop-app/src/index.ts`](../../packages/bundle/desktop-app/src/index.ts)) exposes the four reads above; signatures are in the generated [service catalog](#ctxdesktopruntime--desktopruntime). The glue also registers the `app:desktop-surface` prompt section, orienting newly created sessions to the desktop window (no URL, port, or browser tab; no hot reload; native dialogs available through the usual host tools).
