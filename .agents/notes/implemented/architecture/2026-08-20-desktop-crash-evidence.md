@@ -33,4 +33,4 @@ Evidence writes are best-effort: a write failure logs one stderr line and the fa
 
 ## Consequences
 
-Every main-process failure and renderer crash leaves a durable, machine-readable record under the Harness home. The recovery dialog's advice ("report it with the log files from the Harness home directory") now has a concrete artifact to point at. Snapshots accumulate without overwriting; a future diagnostics-export feature (roadmap phase 2) can zip the diagnostics directory as-is. The shell gains one workspace dependency, bundled into `out/main.js` by esbuild.
+Every main-process failure and renderer crash leaves a durable, machine-readable record under the Harness home. The recovery dialog's advice ("report it with the log files from the Harness home directory") now has a concrete artifact to point at. Snapshots accumulate without overwriting, and the tray diagnostics export ([desktop diagnostics export](2026-08-20-desktop-diagnostics-export.md)) archives the diagnostics directory as-is. The shell gains one workspace dependency, bundled into `out/main.js` by esbuild.

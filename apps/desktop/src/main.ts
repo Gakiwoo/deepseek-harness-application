@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { app, dialog, ipcMain } from 'electron'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import type { DesktopHostHandle } from '@deepseek-ai/dsh-desktop-app/host-boot'
 import type { IpcInvokeRegistrar } from './host-glue/fetch-pump.ts'
 import {
@@ -13,7 +14,13 @@ import {
   type DesktopShutdown,
 } from './lifecycle.ts'
 import { mountDshProtocol, registerDshScheme } from './protocol.ts'
-import { buildCrashEvidence, crashEvidenceDir, writeCrashEvidence } from './crash-evidence.ts'
+import {
+  buildCrashEvidence,
+  crashEvidenceDir,
+  writeCrashEvidence,
+  type EnvironmentFactsOptions,
+} from './crash-evidence.ts'
+import { collectDiagnosticsFacts, exportDiagnosticsArchive } from './diagnostics-export.ts'
 import { recoverShellEnvironment } from './shell-environment.ts'
 import { beginStartup, commitStartup } from './startup-state.ts'
 import { createDesktopTray, electronTrayNative, type DesktopTrayHandle } from './tray.ts'
@@ -115,6 +122,7 @@ async function bootPrimaryInstance(shutdown: DesktopShutdown): Promise<void> {
     electronTrayNative,
     process.platform,
     () => { state.window?.show() },
+    runDiagnosticsExport,
     (code) => { void shutdown.request(code) },
   )
 
@@ -174,15 +182,42 @@ function recordCrashEvidence(reason: string, detail: string): void {
     writeCrashEvidence(crashEvidenceDir(), buildCrashEvidence({
       reason,
       detail,
-      appVersion: app.getVersion(),
-      platform: process.platform,
-      arch: process.arch,
-      packaged: app.isPackaged,
-      env: process.env,
+      ...environmentFactsOptions(),
     }))
   } catch (error) {
     process.stderr.write(`[desktop] crash evidence failed: ${String(error)}\n`)
   }
+}
+
+/** The desktop facts every diagnostics surface collects. */
+function environmentFactsOptions(): EnvironmentFactsOptions {
+  return {
+    appVersion: app.getVersion(),
+    platform: process.platform,
+    arch: process.arch,
+    packaged: app.isPackaged,
+    env: process.env,
+  }
+}
+
+/** Create the diagnostics archive and report the result to the user. */
+function runDiagnosticsExport(): void {
+  void (async () => {
+    const home = resolveDshHome()
+    const path = await exportDiagnosticsArchive(
+      home,
+      collectDiagnosticsFacts(environmentFactsOptions(), join(home, 'sessions')),
+    )
+    void dialog.showMessageBox({
+      type: 'info',
+      title: 'DeepSeek Harness',
+      message: 'Diagnostics exported.',
+      detail: `Attach this file to your report:\n${path}`,
+      buttons: ['OK'],
+    })
+  })().catch((error: unknown) => {
+    dialog.showErrorBox('DeepSeek Harness', `Unable to export diagnostics:\n${String(error)}`)
+  })
 }
 
 function reportExternalOpenError(error: unknown): void {

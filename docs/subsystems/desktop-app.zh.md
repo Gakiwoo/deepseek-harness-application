@@ -26,6 +26,8 @@ Electron 主进程拥有一个窗口、一个托盘和一个 IPC 泵；Electron 
 
 主进程失败与非干净退出的渲染进程崩溃会在失败路径运行前，向 `$DSH_HOME/diagnostics` 写入带时间戳的 JSON 快照——失败原因与详情、运行时版本，以及 PATH 和解析后的 home 路径（[`apps/desktop/src/crash-evidence.ts`](../../apps/desktop/src/crash-evidence.ts)）；写入失败绝不会变成第二次失败。
 
+托盘 "Export diagnostics…" 命令创建 `$DSH_HOME/exports/diagnostics-<timestamp>.tar.gz`——diagnostics 目录、会话日志与一份环境事实文件，用平台 `tar` 打包——并在对话框中报告归档路径（[`apps/desktop/src/diagnostics-export.ts`](../../apps/desktop/src/diagnostics-export.ts)）。
+
 ## 服务
 
 `desktopRuntime`（定义于 [`packages/bundle/desktop-app/src/index.ts`](../../packages/bundle/desktop-app/src/index.ts)）暴露上述四个读取面；签名见生成的[服务目录](#ctxdesktopruntime--desktopruntime)。胶水还注册了 `app:desktop-surface` prompt section，把新建的会话引导到桌面窗口（没有 URL、端口或浏览器标签页，没有热重载，经常规宿主工具即可使用原生对话框）。

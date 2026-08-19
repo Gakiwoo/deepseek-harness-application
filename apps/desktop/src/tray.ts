@@ -75,10 +75,11 @@ export const electronTrayNative: DesktopTrayNative = {
 }
 
 /**
- * Creates the two-command native tray and restore gesture.
+ * Creates the three-command native tray and restore gesture.
  * @param native Native tray operations.
  * @param platform Current Node.js platform.
  * @param show Restores the desktop window.
+ * @param exportDiagnostics Starts a diagnostics archive export.
  * @param requestQuit Starts orderly process shutdown.
  * @returns The owned tray handle.
  */
@@ -86,6 +87,7 @@ export function createDesktopTray(
   native: DesktopTrayNative,
   platform: NodeJS.Platform,
   show: () => void,
+  exportDiagnostics: () => void,
   requestQuit: (code: number) => void,
 ): DesktopTrayHandle {
   const macOS = platform === 'darwin'
@@ -97,6 +99,8 @@ export function createDesktopTray(
 
   const template: DesktopTrayMenuItem[] = [
     { label: 'Show DeepSeek Harness', click: show },
+    { type: 'separator' },
+    { label: 'Export diagnostics…', click: exportDiagnostics },
     { type: 'separator' },
     { label: 'Quit', click: () => { requestQuit(0) } },
   ]

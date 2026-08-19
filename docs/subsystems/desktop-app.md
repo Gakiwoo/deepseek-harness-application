@@ -26,6 +26,8 @@ A packaged POSIX launch recovers the login-shell environment before boot: it run
 
 Main-process failures and non-clean renderer crashes write a timestamped JSON snapshot — failure reason and detail, runtime versions, and PATH plus the resolved homes — to `$DSH_HOME/diagnostics` before the failure path runs ([`apps/desktop/src/crash-evidence.ts`](../../apps/desktop/src/crash-evidence.ts)); a write failure never turns into a second failure.
 
+The tray "Export diagnostics…" command creates `$DSH_HOME/exports/diagnostics-<timestamp>.tar.gz` — the diagnostics directory, the session logs, and an environment-facts file, packed with the platform `tar` — and reports the archive path in a dialog ([`apps/desktop/src/diagnostics-export.ts`](../../apps/desktop/src/diagnostics-export.ts)).
+
 ## The service
 
 `desktopRuntime` (defined in [`packages/bundle/desktop-app/src/index.ts`](../../packages/bundle/desktop-app/src/index.ts)) exposes the four reads above; signatures are in the generated [service catalog](#ctxdesktopruntime--desktopruntime). The glue also registers the `app:desktop-surface` prompt section, orienting newly created sessions to the desktop window (no URL, port, or browser tab; no hot reload; native dialogs available through the usual host tools).

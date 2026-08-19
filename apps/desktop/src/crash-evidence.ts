@@ -14,14 +14,8 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 
-/** One crash snapshot, written as JSON. */
-export interface CrashEvidence {
-  /** ISO timestamp of the snapshot. */
-  at: string
-  /** Failure category, e.g. `Unexpected failure` or `renderer crashed`. */
-  reason: string
-  /** Error stack or message, when one exists. */
-  detail?: string
+/** The environment facts shared by crash snapshots and diagnostics exports. */
+export interface EnvironmentFacts {
   /** The packaged application version. */
   appVersion: string
   /** Electron version, absent in non-Electron runtimes. */
@@ -36,22 +30,25 @@ export interface CrashEvidence {
   arch: string
   /** Whether the launch ran from a packaged application. */
   packaged: boolean
-  /** Process uptime in milliseconds at the snapshot. */
+  /** Process uptime in milliseconds at collection. */
   uptimeMs: number
   /** Operating-system home directory. */
   home: string
   /** The resolved Harness home, `$DSH_HOME` or `~/.dsh`. */
   dshHome: string
-  /** The process PATH at the snapshot. */
+  /** The process PATH at collection. */
   path: string
 }
 
-export interface BuildCrashEvidenceOptions {
-  reason: string
-  detail?: string
+/** Inputs for collecting environment facts. */
+export interface EnvironmentFactsOptions {
+  /** The packaged application version. */
   appVersion: string
+  /** Operating system platform. */
   platform: NodeJS.Platform
+  /** CPU architecture. */
   arch: string
+  /** Whether the launch ran from a packaged application. */
   packaged: boolean
   /** Environment mapping used for the facts and Harness home resolution. */
   env: Record<string, string | undefined>
@@ -62,18 +59,15 @@ export interface BuildCrashEvidenceOptions {
 }
 
 /**
- * Build a crash snapshot from the failure facts. Credential-shaped
- * environment names are never read: PATH, the OS home, and the resolved
- * Harness home are the only environment facts.
+ * Collect the environment facts shared by crash snapshots and diagnostics
+ * exports. Credential-shaped environment names are never read: PATH, the OS
+ * home, and the resolved Harness home are the only environment facts.
  */
-export function buildCrashEvidence(options: BuildCrashEvidenceOptions): CrashEvidence {
+export function collectEnvironmentFacts(options: EnvironmentFactsOptions): EnvironmentFacts {
   // Electron augments ProcessVersions with electron/chrome, which plain Node
   // runtimes lack; the indexed view keeps both optional.
   const runtime: Record<string, string | undefined> = options.versions ?? process.versions
   return {
-    at: new Date().toISOString(),
-    reason: options.reason,
-    ...(options.detail !== undefined ? { detail: options.detail } : {}),
     appVersion: options.appVersion,
     ...(runtime.electron !== undefined ? { electronVersion: runtime.electron } : {}),
     ...(runtime.chrome !== undefined ? { chromeVersion: runtime.chrome } : {}),
@@ -85,6 +79,36 @@ export function buildCrashEvidence(options: BuildCrashEvidenceOptions): CrashEvi
     home: homedir(),
     dshHome: resolveDshHome(undefined, options.env),
     path: options.env.PATH ?? '',
+  }
+}
+
+/** One crash snapshot, written as JSON. */
+export interface CrashEvidence extends EnvironmentFacts {
+  /** ISO timestamp of the snapshot. */
+  at: string
+  /** Failure category, e.g. `Unexpected failure` or `renderer crashed`. */
+  reason: string
+  /** Error stack or message, when one exists. */
+  detail?: string
+}
+
+/** Inputs for building a crash snapshot. */
+export interface BuildCrashEvidenceOptions extends EnvironmentFactsOptions {
+  /** Failure category, e.g. `Unexpected failure` or `renderer crashed`. */
+  reason: string
+  /** Error stack or message, when one exists. */
+  detail?: string
+}
+
+/**
+ * Build a crash snapshot from the failure facts.
+ */
+export function buildCrashEvidence(options: BuildCrashEvidenceOptions): CrashEvidence {
+  return {
+    at: new Date().toISOString(),
+    reason: options.reason,
+    ...(options.detail !== undefined ? { detail: options.detail } : {}),
+    ...collectEnvironmentFacts(options),
   }
 }
 

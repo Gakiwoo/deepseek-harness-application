@@ -33,4 +33,4 @@ Status: implemented
 
 ## 后果
 
-每一次主进程失败与渲染进程崩溃都会在 Harness home 下留下持久、机器可读的记录。恢复对话框的建议（"带上 Harness home 目录下的日志文件"）现在有了可以指着的具体产物。快照只增不覆盖；未来的诊断导出功能（路线图阶段 2）可以直接把 diagnostics 目录打包。壳多一个工作区依赖，由 esbuild 打进 `out/main.js`。
+每一次主进程失败与渲染进程崩溃都会在 Harness home 下留下持久、机器可读的记录。恢复对话框的建议（"带上 Harness home 目录下的日志文件"）现在有了可以指着的具体产物。快照只增不覆盖，托盘的诊断导出（[桌面诊断导出](2026-08-20-desktop-diagnostics-export.md)）直接打包 diagnostics 目录。壳多一个工作区依赖，由 esbuild 打进 `out/main.js`。
