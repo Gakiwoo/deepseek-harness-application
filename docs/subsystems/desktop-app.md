@@ -28,6 +28,8 @@ Main-process failures and non-clean renderer crashes write a timestamped JSON sn
 
 The tray "Export diagnostics…" command creates `$DSH_HOME/exports/diagnostics-<timestamp>.tar.gz` — the diagnostics directory, the session logs, and an environment-facts file, packed with the platform `tar` — and reports the archive path in a dialog ([`apps/desktop/src/diagnostics-export.ts`](../../apps/desktop/src/diagnostics-export.ts)).
 
+The shell owns an updates capability ([`apps/desktop/src/updates.ts`](../../apps/desktop/src/updates.ts), contract in [the desktop README](../../apps/desktop/README.md#updates)): the tray's "Check for updates…" command queries the repository's GitHub Releases feed, matches the platform artifact plus its required `.sha256` sidecar, downloads with verification into Electron user data, and stages a pending marker. A clean quit consumes the marker by swapping the macOS bundle or running the Windows installer silently; a failed swap restores the running bundle and rejects the quit.
+
 Every pack ends with the packaged-runtime verification ([`scripts/verify-packaged-runtime.ts`](../../scripts/verify-packaged-runtime.ts)): it boots the deployed host closure under plain Node with a temp Harness home and creates one empty session through the IPC-wire client, asserts the packaged bundle carries `THIRD_PARTY_NOTICES.md`, and launches the packaged executable to confirm the renderer reaches readiness (the `lastGood` startup state, skipped on headless Linux or with `DSH_VERIFY_SKIP_LIVE=1`). The packaged host boot resolves the deployed closure root at `resources/host/lib/host-boot.js`; the deploy lands the desktop-app package at the host root, not under `node_modules`.
 
 ## The service

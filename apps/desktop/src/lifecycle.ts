@@ -6,9 +6,10 @@ export interface DesktopShutdown {
   /**
    * Starts disposal or escalates an already pending shutdown.
    * @param code Requested process exit code.
+   * @param requestTimeoutMs Disposal budget for this request; defaults to the creation budget.
    * @returns The first shutdown attempt.
    */
-  request(code: number): Promise<void>
+  request(code: number, requestTimeoutMs?: number): Promise<void>
 
   /** @returns Whether shutdown has been requested. */
   isPending(): boolean
@@ -48,6 +49,9 @@ export interface DesktopShellResources {
 
   /** Window, tray, and listener owner. */
   readonly native?: { dispose(): void }
+
+  /** Pending-update applier, run last so no owned file is in use during the swap. */
+  readonly updater?: { applyPending(): Promise<void> }
 }
 
 /**
@@ -61,6 +65,9 @@ export async function disposeDesktopShell(resources: DesktopShellResources): Pro
     await resources.host?.dispose()
   } finally {
     resources.native?.dispose()
+    // A pending update apply runs last so no owned file is in use during a
+    // bundle swap; a failed apply rejects the quit and exits non-zero.
+    await resources.updater?.applyPending()
   }
 }
 
@@ -86,7 +93,7 @@ export function createDesktopShutdown(
   }
 
   return {
-    request(code) {
+    request(code, requestTimeoutMs = timeoutMs) {
       if (pending !== undefined) {
         exitOnce(code)
         return pending
@@ -96,7 +103,7 @@ export function createDesktopShutdown(
         const timeout = setTimeout(() => {
           exitOnce(code === 0 ? 1 : code)
           resolve()
-        }, timeoutMs)
+        }, requestTimeoutMs)
 
         void dispose().then(
           () => {

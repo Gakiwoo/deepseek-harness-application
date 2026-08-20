@@ -8,7 +8,13 @@ The shell is a three-layer Electron app: the **main process** boots the packaged
 
 ## Native lifecycle
 
-Closing the window hides it to the native tray; the Host and its current work continue running. **Show DeepSeek Harness**, a tray double-click, or a second application launch restores the same single window. The tray's **Export diagnostics…** command creates a diagnostics archive under the Harness home. Only the tray's **Quit** command or an operating-system quit request disposes the Host and exits the process. Disposal has a five-second deadline, after which the shell forces a nonzero exit; a repeated quit request escalates immediately.
+Closing the window hides it to the native tray; the Host and its current work continue running. **Show DeepSeek Harness**, a tray double-click, or a second application launch restores the same single window. The tray's **Export diagnostics…** command creates a diagnostics archive under the Harness home, and **Check for updates…** drives the updates capability. Only the tray's **Quit** command or an operating-system quit request disposes the Host and exits the process. Disposal has a five-second deadline, after which the shell forces a nonzero exit; a repeated quit request escalates immediately.
+
+## Updates
+
+The tray's **Check for updates…** command queries the GitHub Releases feed of this repository for the newest release newer than the running version (prereleases only when the running version is a prerelease), matches the platform artifact (`mac-<arch>.zip` preferred on macOS, `win-x64.exe` on Windows), and requires the matching `<artifact>.sha256` sidecar in the same release. The artifact downloads into Electron user data with sha256 verification; a macOS zip is then extracted and version-verified (ditto, quarantine attribute removed) before a pending marker is written. The next clean quit consumes the marker: macOS swaps the running bundle in place (the old bundle is moved aside and restored when the swap fails), Windows spawns the NSIS installer silently. A release without a matching artifact or checksum sidecar fails loud in the check dialog.
+
+Check and download also work in dev with `DSH_DESKTOP_UPDATE_CHECK=1`; apply stays packaged-only. `DSH_DESKTOP_UPDATE_REPOSITORY=owner/repo` overrides the feed. `pnpm run pack:desktop` writes the `.sha256` sidecars next to every artifact in `apps/desktop/dist/`, so a release of those files satisfies the checksum contract ([`apps/desktop/src/updates.ts`](../../apps/desktop/src/updates.ts)).
 
 ## Development
 
@@ -28,11 +34,11 @@ pnpm run pack:desktop
 
 This deploys the host closure into `apps/desktop/resources/host`, builds the desktop-mode frontend into `resources/frontend`, bundles the shell, rebuilds `node-pty` against the Electron ABI, and runs electron-builder. Artifacts land in `apps/desktop/dist/` (mac dmg/zip, win nsis/zip), selected by `DSH_DESKTOP_ARCH` when set.
 
-Every pack ends with the packaged-runtime verification (`pnpm run verify:packed`, [scripts/verify-packaged-runtime.ts](../../scripts/verify-packaged-runtime.ts)): it boots the deployed host closure under plain Node with a temp Harness home and creates one empty session through the IPC-wire client, asserts the packaged bundle carries `THIRD_PARTY_NOTICES.md`, and launches the packaged executable to confirm the renderer reaches readiness (`lastGood` startup state). On headless Linux or with `DSH_VERIFY_SKIP_LIVE=1` the live-launch check is skipped; the other checks still run.
+Every pack ends with the packaged-runtime verification (`pnpm run verify:packed`, [scripts/verify-packaged-runtime.ts](../../scripts/verify-packaged-runtime.ts)): it boots the deployed host closure under plain Node with a temp Harness home and creates one empty session through the IPC-wire client, asserts the packaged bundle carries `THIRD_PARTY_NOTICES.md`, and launches the packaged executable to confirm the renderer reaches readiness (`lastGood` startup state). On headless Linux or with `DSH_VERIFY_SKIP_LIVE=1` the live-launch check is skipped; the other checks still run. Every produced artifact additionally gets a `.sha256` sidecar written next to it.
 
 ### Unsigned artifacts
 
-Local and CI artifacts are **unsigned**. On macOS, Gatekeeper blocks a downloaded app — right-click → *Open*, or move it to Applications and open once. On Windows, SmartScreen shows "Windows protected your PC" — choose *More info* → *Run anyway*. Signing/notarization and auto-update are deferred follow-up work.
+Local and CI artifacts are **unsigned**. On macOS, Gatekeeper blocks a downloaded app — right-click → *Open*, or move it to Applications and open once. On Windows, SmartScreen shows "Windows protected your PC" — choose *More info* → *Run anyway*. In-app updates install the same unsigned artifacts: the applied bundle has its quarantine attribute removed during staging, but a signed/notarized release chain remains follow-up work.
 
 ## Expected size
 

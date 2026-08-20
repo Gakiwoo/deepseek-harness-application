@@ -16,16 +16,18 @@
     "pack": "tsx ../../scripts/pack-desktop.ts"
   },
   "devDependencies": {
+    "@types/semver": "^7.8.0",
     "electron": "^38.0.0",
     "electron-builder": "^25.0.0",
+    "electron-rebuild": "^3.2.9",
     "esbuild": "^0.24.0",
-    "tsx": "^4.22.4",
-    "electron-rebuild": "^3.2.9"
+    "semver": "^7.8.4",
+    "tsx": "^4.22.4"
   },
   "dependencies": {
     "@deepseek-ai/dsh-client-connection": "workspace:^",
-    "@deepseek-ai/dsh-desktop-app": "workspace:^",
     "@deepseek-ai/dsh-client-modules": "workspace:^",
+    "@deepseek-ai/dsh-desktop-app": "workspace:^",
     "@deepseek-ai/dsh-home-paths": "workspace:^"
   }
 }

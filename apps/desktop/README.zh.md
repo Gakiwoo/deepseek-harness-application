@@ -8,7 +8,13 @@ DeepSeek Harness 桌面壳（Electron）。它把服务启动、运行管理和�
 
 ## 原生生命周期
 
-关闭窗口只会把它隐藏到原生托盘；Host 及其当前工作继续运行。**Show DeepSeek Harness**、双击托盘或再次启动应用都会恢复同一个单例窗口。托盘的 **Export diagnostics…** 命令会在 Harness home 下创建诊断归档。只有托盘的 **Quit** 命令或操作系统退出请求才会 dispose（资源释放）Host 并结束进程。资源释放的期限为五秒，超时后壳会强制以非零状态退出；重复的退出请求会立即升级。
+关闭窗口只会把它隐藏到原生托盘；Host 及其当前工作继续运行。**Show DeepSeek Harness**、双击托盘或再次启动应用都会恢复同一个单例窗口。托盘的 **Export diagnostics…** 命令会在 Harness home 下创建诊断归档，**Check for updates…** 则驱动更新能力。只有托盘的 **Quit** 命令或操作系统退出请求才会 dispose（资源释放）Host 并结束进程。资源释放的期限为五秒，超时后壳会强制以非零状态退出；重复的退出请求会立即升级。
+
+## 更新
+
+托盘的 **Check for updates…** 命令查询本仓库的 GitHub Releases feed，寻找比当前版本更新的最新发布（仅当当前版本是预发布版时才包含预发布版），匹配平台产物（macOS 优先 `mac-<arch>.zip`，Windows 为 `win-x64.exe`），并要求同一发布携带对应的 `<artifact>.sha256` 校验和边车。产物下载到 Electron user data，并做 sha256 校验；macOS zip 随后会被解压并做版本校验（ditto，同时移除隔离属性），然后写入待应用标记。下一次干净退出会消费该标记：macOS 就地替换运行中的 bundle（旧 bundle 移开，交换失败时恢复），Windows 静默启动 NSIS 安装程序。发布缺少匹配产物或校验和边车时，检查对话框会大声失败。
+
+开发模式下可用 `DSH_DESKTOP_UPDATE_CHECK=1` 启用检查与下载；应用只发生在打包应用上。`DSH_DESKTOP_UPDATE_REPOSITORY=owner/repo` 可覆盖 feed。`pnpm run pack:desktop` 会在 `apps/desktop/dist/` 中为每个产物写出 `.sha256` 边车，因此发布这些文件即满足校验和契约（[`apps/desktop/src/updates.ts`](../../apps/desktop/src/updates.ts)）。
 
 ## 开发
 
@@ -28,11 +34,11 @@ pnpm run pack:desktop
 
 这会把宿主闭包部署到 `apps/desktop/resources/host`，把桌面模式前端构建到 `resources/frontend`，打包壳，针对 Electron ABI 重建 `node-pty`，然后运行 electron-builder。产物落在 `apps/desktop/dist/`（mac dmg/zip、win nsis/zip），设置 `DSH_DESKTOP_ARCH` 时按该架构选择。
 
-每次打包都以打包运行时验证收尾（`pnpm run verify:packed`，[scripts/verify-packaged-runtime.ts](../../scripts/verify-packaged-runtime.ts)）：在纯 Node 下用临时 Harness home 启动部署后的宿主闭包，并通过 IPC 线客户端创建一个空会话；断言打包产物携带 `THIRD_PARTY_NOTICES.md`；启动打包后的可执行文件，确认渲染进程达到就绪（`lastGood` 启动状态）。无头 Linux 或设置 `DSH_VERIFY_SKIP_LIVE=1` 时跳过实机启动检查；其余检查仍会运行。
+每次打包都以打包运行时验证收尾（`pnpm run verify:packed`，[scripts/verify-packaged-runtime.ts](../../scripts/verify-packaged-runtime.ts)）：在纯 Node 下用临时 Harness home 启动部署后的宿主闭包，并通过 IPC 线客户端创建一个空会话；断言打包产物携带 `THIRD_PARTY_NOTICES.md`；启动打包后的可执行文件，确认渲染进程达到就绪（`lastGood` 启动状态）。无头 Linux 或设置 `DSH_VERIFY_SKIP_LIVE=1` 时跳过实机启动检查；其余检查仍会运行。每个产物还会额外写出一个 `.sha256` 边车。
 
 ### 未签名产物
 
-本地与 CI 产物均**未签名**。在 macOS 上，Gatekeeper 会阻止下载的应用——右键 → *打开*，或移入 Applications 后打开一次。在 Windows 上，SmartScreen 会显示「Windows 已保护你的电脑」——选择 *更多信息* → *仍要运行*。签名/公证与自动更新是后续工作。
+本地与 CI 产物均**未签名**。在 macOS 上，Gatekeeper 会阻止下载的应用——右键 → *打开*，或移入 Applications 后打开一次。在 Windows 上，SmartScreen 会显示「Windows 已保护你的电脑」——选择 *更多信息* → *仍要运行*。应用内更新安装的是同样的未签名产物：应用后的 bundle 会在暂存阶段移除隔离属性，但签名/公证的发布链路仍是后续工作。
 
 ## 预期体积
 

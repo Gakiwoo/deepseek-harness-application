@@ -1,6 +1,7 @@
-/** Pack the desktop app: host closure deploy → frontend dist → shell build → node-pty rebuild → electron-builder. */
+/** Pack the desktop app: host closure deploy → frontend dist → shell build → node-pty rebuild → electron-builder → checksum sidecars. */
 
-import { cpSync, lstatSync, mkdirSync, readdirSync, realpathSync, rmSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { cpSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import process from 'node:process'
@@ -112,6 +113,19 @@ function main(): void {
   runPnpm(['--filter', '@deepseek-ai/dsh-desktop', 'exec', 'electron-builder', '--publish', 'never', `--${arch}`], appDir, {
     CSC_IDENTITY_AUTO_DISCOVERY: 'false',
   })
+
+  // 6. checksum sidecars: every produced artifact gets a `shasum`-compatible
+  // `.sha256` sibling so a GitHub release of these files satisfies the desktop
+  // updater's required checksum contract (see apps/desktop/src/updates.ts).
+  const distDir = join(appDir, 'dist')
+  const artifactExtensions = ['.dmg', '.zip', '.exe']
+  for (const entry of readdirSync(distDir)) {
+    if (!artifactExtensions.some(extension => entry.endsWith(extension))) continue
+    const path = join(distDir, entry)
+    if (!lstatSync(path).isFile()) continue
+    const digest = createHash('sha256').update(readFileSync(path)).digest('hex')
+    writeFileSync(`${path}.sha256`, `${digest}  ${entry}\n`)
+  }
 }
 
 main()

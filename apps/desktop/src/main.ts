@@ -1,7 +1,8 @@
 /** Desktop shell entry: one native lifecycle over the Host, window, tray, and IPC pump. */
 
 import { randomUUID } from 'node:crypto'
-import { app, dialog, ipcMain } from 'electron'
+import { execFileSync, spawn } from 'node:child_process'
+import { app, dialog, ipcMain, Notification } from 'electron'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
@@ -24,6 +25,12 @@ import { collectDiagnosticsFacts, exportDiagnosticsArchive } from './diagnostics
 import { recoverShellEnvironment } from './shell-environment.ts'
 import { beginStartup, commitStartup } from './startup-state.ts'
 import { createDesktopTray, electronTrayNative, type DesktopTrayHandle } from './tray.ts'
+import {
+  createDesktopUpdater,
+  UPDATE_APPLY_TIMEOUT_MS,
+  type DesktopUpdateHandle,
+  type DesktopUpdateNative,
+} from './updates.ts'
 import { createMainWindow, type DesktopWindowHandle } from './window.ts'
 import { mountFetchPump } from './host-glue/fetch-pump.ts'
 
@@ -32,6 +39,7 @@ interface ShellState {
   tray?: DesktopTrayHandle
   host?: DesktopHostHandle
   pump?: { dispose(): void }
+  updater?: DesktopUpdateHandle
 }
 
 const state: ShellState = {}
@@ -61,6 +69,9 @@ if (!app.requestSingleInstanceLock()) {
           state.window?.dispose()
         },
       },
+      updater: state.updater
+        ? { applyPending: () => { return state.updater?.applyPending() ?? Promise.resolve() } }
+        : undefined,
     }),
     (code) => { app.exit(code) },
   )
@@ -123,8 +134,21 @@ async function bootPrimaryInstance(shutdown: DesktopShutdown): Promise<void> {
     process.platform,
     () => { state.window?.show() },
     runDiagnosticsExport,
+    () => { void runUpdateCheck(shutdown) },
     (code) => { void shutdown.request(code) },
   )
+
+  // Update checks run on every install; dev launches opt in through the
+  // environment so the dialogs stay out of development. Apply happens during
+  // the shutdown disposal of the packaged app only.
+  state.updater = createDesktopUpdater(updateNative(), {
+    enabled: app.isPackaged || process.env.DSH_DESKTOP_UPDATE_CHECK === '1',
+    platform: process.platform,
+    arch: process.arch,
+    currentVersion: app.getVersion(),
+    currentAppPath: join(app.getPath('exe'), '..', '..', '..'),
+    userDataDir: app.getPath('userData'),
+  })
 
   // Host boot lives in the packaged closure; development resolves the workspace build.
   // The deploy lands the dsh-desktop-app package at the resources/host root, so the
@@ -224,4 +248,87 @@ function runDiagnosticsExport(): void {
 
 function reportExternalOpenError(error: unknown): void {
   dialog.showErrorBox('DeepSeek Harness', `Unable to open external link:\n${String(error)}`)
+}
+
+/** Native operations of the updates capability, backed by Electron primitives. */
+function updateNative(): DesktopUpdateNative {
+  return {
+    fetch: (input, init) => { return fetch(input, init) },
+    spawn: (command, args, options) => {
+      return spawn(command, args, options ?? {})
+    },
+    env: process.env,
+    plistBundleVersion: (appPath) => {
+      return execFileSync(
+        'plutil',
+        ['-extract', 'CFBundleShortVersionString', 'raw', '-o', '-', join(appPath, 'Contents', 'Info.plist')],
+        { encoding: 'utf8' },
+      ).trim()
+    },
+  }
+}
+
+/**
+ * Checks the release feed and drives the download/install dialogs.
+ * @param shutdown The desktop shutdown controller, used for quit-to-install.
+ */
+function runUpdateCheck(shutdown: DesktopShutdown): Promise<void> {
+  return (async () => {
+    const updater = state.updater
+    if (updater === undefined) return
+    const info = await updater.check()
+    if (info === undefined) {
+      void dialog.showMessageBox({
+        type: 'info',
+        title: 'DeepSeek Harness',
+        message: 'DeepSeek Harness is up to date.',
+        detail: `You are running the newest release (${app.getVersion()}).`,
+        buttons: ['OK'],
+      })
+      return
+    }
+
+    const downloadChoice = await dialog.showMessageBox({
+      type: 'info',
+      title: 'DeepSeek Harness',
+      message: `DeepSeek Harness ${info.version} is available.`,
+      detail: `You are running ${app.getVersion()}. The update downloads in the background and installs when you quit.`,
+      buttons: ['Download', 'Later'],
+      defaultId: 0,
+      cancelId: 1,
+    })
+    if (downloadChoice.response !== 0) return
+
+    const artifactPath = await updater.download(info, (progress) => {
+      notifyProgress(info.version, progress.received / progress.total)
+    })
+    await updater.stage(info, artifactPath)
+
+    const installChoice = await dialog.showMessageBox({
+      type: 'info',
+      title: 'DeepSeek Harness',
+      message: `Update ${info.version} is ready.`,
+      detail: 'Install it now and quit, or it installs next time you quit the app.',
+      buttons: ['Install now and quit', 'Later'],
+      defaultId: 0,
+      cancelId: 1,
+    })
+    if (installChoice.response === 0) {
+      // A bundle swap outlives the ordinary shutdown budget.
+      void shutdown.request(0, UPDATE_APPLY_TIMEOUT_MS)
+    }
+  })().catch((error: unknown) => {
+    dialog.showErrorBox('DeepSeek Harness', `Unable to check for updates:\n${String(error)}`)
+  })
+}
+
+/** Reports download progress through native notifications at quarter steps. */
+function notifyProgress(version: string, ratio: number): void {
+  const step = Math.floor(ratio * 4)
+  if (step < 1 || step > 4) return
+  const body = ['downloaded 25%.', 'downloaded 50%.', 'downloaded 75%.', 'is ready to install.'][step - 1]
+  new Notification({
+    title: `DeepSeek Harness ${version}`,
+    body,
+  }).show()
 }

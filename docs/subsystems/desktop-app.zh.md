@@ -28,6 +28,8 @@ Electron 主进程拥有一个窗口、一个托盘和一个 IPC 泵；Electron 
 
 托盘 "Export diagnostics…" 命令创建 `$DSH_HOME/exports/diagnostics-<timestamp>.tar.gz`——diagnostics 目录、会话日志与一份环境事实文件，用平台 `tar` 打包——并在对话框中报告归档路径（[`apps/desktop/src/diagnostics-export.ts`](../../apps/desktop/src/diagnostics-export.ts)）。
 
+壳拥有一个更新能力（[`apps/desktop/src/updates.ts`](../../apps/desktop/src/updates.ts)，契约见 [桌面 README](../../apps/desktop/README.md#updates)）：托盘的 "Check for updates…" 命令查询仓库的 GitHub Releases feed，匹配平台产物及其必需的 `.sha256` 边车，校验后下载到 Electron user data，并写入待应用标记。一次干净的退出会消费该标记：替换 macOS bundle，或静默运行 Windows 安装程序；失败的交换会恢复正在运行的 bundle 并拒绝退出。
+
 每次打包都以打包运行时验证收尾（[`scripts/verify-packaged-runtime.ts`](../../scripts/verify-packaged-runtime.ts)）：在纯 Node 下用临时 Harness home 启动部署后的宿主闭包，并通过 IPC 线客户端创建一个空会话；断言打包产物携带 `THIRD_PARTY_NOTICES.md`；启动打包后的可执行文件，确认渲染进程达到就绪（`lastGood` 启动状态；无头 Linux 或设置 `DSH_VERIFY_SKIP_LIVE=1` 时跳过）。打包后的宿主启动解析部署闭包的根目录 `resources/host/lib/host-boot.js`；deploy 把 desktop-app 包放在 host 根目录，而不是 `node_modules` 下。
 
 ## 服务

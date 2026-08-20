@@ -119,4 +119,13 @@ describe('desktop build contracts', () => {
     expect(hostBootSource).toContain("SHIPPED_PRESET_ROOT = fileURLToPath(new URL('../config/agent-presets/', import.meta.url))")
     expect(hostBootSource).toContain("roots: [{ path: SHIPPED_PRESET_ROOT, trust: 'system' }]")
   })
+
+  it('writes a checksum sidecar for every built artifact', () => {
+    expect(packScript).toContain('writeFileSync(`${path}.sha256`, `${digest}  ${entry}\\n`)')
+  })
+
+  it('bundles the updates capability into the desktop shell', () => {
+    expect(mainSource).toContain('createDesktopUpdater,\n  UPDATE_APPLY_TIMEOUT_MS,')
+    expect(mainSource).toContain('state.updater = createDesktopUpdater(updateNative(), {')
+  })
 })
