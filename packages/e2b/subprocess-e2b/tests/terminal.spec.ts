@@ -85,6 +85,7 @@ class FakeTerminalSandbox {
   readonly commands: string[] = []
   readonly commandOptions: CommandOptions[] = []
   readonly inputs: Array<{ pid: number; data: Buffer }> = []
+  readonly resizes: Array<{ pid: number; cols: number; rows: number }> = []
   readonly removed: string[] = []
   readonly directories: string[] = []
   readonly writes = new Map<string, string>()
@@ -222,6 +223,10 @@ class FakeTerminalSandbox {
           }
         }
       },
+      resize: async (pid: number, size: { cols: number; rows: number }, options?: { signal?: AbortSignal }): Promise<void> => {
+        options?.signal?.throwIfAborted()
+        this.resizes.push({ pid, cols: size.cols, rows: size.rows })
+      },
     },
   } as unknown as Sandbox
 }
@@ -337,6 +342,8 @@ describe('E2B terminal allocation', () => {
     controller.abort(new Error('stop'))
     await terminal.write('still live\r')
     expect(fake.inputs.at(-1)?.data.toString()).toBe('still live\r')
+    await terminal.resize(120, 40)
+    expect(fake.resizes.at(-1)).toEqual({ pid: terminal.pid, cols: 120, rows: 40 })
     await terminal.terminate()
     await expect(terminal.done).resolves.toEqual({ exitCode: null, signal: 'SIGTERM' })
   })
@@ -580,6 +587,7 @@ describe('E2B terminal lifecycle', () => {
     await expect(terminal.done).resolves.toEqual({ exitCode: 7, signal: null })
     await ended
     await expect(terminal.write('late')).rejects.toThrow('exited')
+    await expect(terminal.resize(120, 40)).rejects.toThrow('exited')
     fake.foregroundFailure = commandError(1)
     await expect(terminal.inspectForeground()).resolves.toBeUndefined()
     await expect(terminal.signalForeground('SIGINT')).rejects.toThrow('cannot resolve foreground process group')
