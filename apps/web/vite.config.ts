@@ -118,6 +118,12 @@ export default defineConfig(({ mode }) => ({
   build: {
     sourcemap: true,
     rollupOptions: {
+      // Two documents: the app shell and the standalone terminal page. The
+      // terminal page shares the asset pipeline but keeps its own entry chunk.
+      input: {
+        index: src('index.html'),
+        terminal: src('terminal.html'),
+      },
       output: {
         // Output layout: index and the vendor-family chunks stay at assets/
         // root; lazy @shikijs/langs grammar chunks group under assets/langs/;
@@ -171,6 +177,12 @@ export default defineConfig(({ mode }) => ({
       // Browserization of the vendored cordis Loader: its only node-only
       // import; the two process probes are mapped by `define` below.
       { find: /^node:module$/, replacement: src('./src/node-module-stub.ts') },
+      // The terminal page's RPC bridge imports the browser wire client and
+      // the RPC envelope straight from source (see the workspace-package
+      // comment below).
+      { find: /^@deepseek-ai\/dsh-client-connection\/desktop-bridge$/, replacement: src('../../packages/client/connection/src/client/desktop-bridge.ts') },
+      { find: /^@deepseek-ai\/dsh-client-connection\/client$/, replacement: src('../../packages/client/connection/src/client/index.ts') },
+      { find: /^@deepseek-ai\/dsh-host-apiproxy\/api$/, replacement: src('../../packages/host/apiproxy/src/api/index.ts') },
       { find: /^@deepseek-ai\/dsh-client-web$/, replacement: src('../../packages/client/web/src/boot.tsx') },
       { find: /^@deepseek-ai\/dsh-client-web-react$/, replacement: src('../../packages/client/web-react/src/index.ts') },
       { find: /^@deepseek-ai\/dsh-client-ui-slots$/, replacement: src('../../packages/client/ui-slots/src/index.ts') },

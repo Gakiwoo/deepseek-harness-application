@@ -8,7 +8,7 @@ The shell is a three-layer Electron app: the **main process** boots the packaged
 
 ## Native lifecycle
 
-Closing the window hides it to the native tray; the Host and its current work continue running. **Show DeepSeek Harness**, a tray double-click, or a second application launch restores the same single window. The tray's **Export diagnostics…** command creates a diagnostics archive under the Harness home, and **Check for updates…** drives the updates capability. Only the tray's **Quit** command or an operating-system quit request disposes the Host and exits the process. Disposal has a five-second deadline, after which the shell forces a nonzero exit; a repeated quit request escalates immediately.
+Closing the window hides it to the native tray; the Host and its current work continue running. **Show DeepSeek Harness**, a tray double-click, or a second application launch restores the same single window. The tray's **Export diagnostics…** command creates a diagnostics archive under the Harness home, and **Check for updates…** drives the updates capability. **Open Terminal** opens a standalone terminal window backed by the host's `terminalManager` Remote: the renderer page spawns the user shell through the subprocess seam and streams input, output, resizes, and signals over the same IPC pump; closing the window ends the session. Only the tray's **Quit** command or an operating-system quit request disposes the Host and exits the process. Disposal has a five-second deadline, after which the shell forces a nonzero exit; a repeated quit request escalates immediately.
 
 ## Profiles
 

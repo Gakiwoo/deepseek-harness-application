@@ -43,6 +43,8 @@ interface DesktopTrayImage {
 export interface DesktopTrayOptions {
   /** Restores the desktop window. */
   readonly show: () => void
+  /** Opens the terminal window, creating it when needed. */
+  readonly openTerminal: () => void
   /** Starts a diagnostics archive export. */
   readonly exportDiagnostics: () => void
   /** Checks the release feed and orchestrates download dialogs. */
@@ -124,6 +126,7 @@ export function createDesktopTray(
 
   const template: DesktopTrayMenuItem[] = [
     { label: 'Show DeepSeek Harness', click: show },
+    { label: 'Open Terminal', click: options.openTerminal },
     { type: 'separator' },
     {
       label: 'Profile',

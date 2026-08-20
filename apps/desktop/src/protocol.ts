@@ -1,6 +1,7 @@
 /** dsh:// scheme: desktop frontend + plugin client bundles + boot manifest injection. */
 
 import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { net, protocol } from 'electron'
 import { injectBootManifest } from '@deepseek-ai/dsh-client-modules'
 import type { DesktopRuntime } from '@deepseek-ai/dsh-desktop-app'
@@ -25,6 +26,13 @@ export function mountDshProtocol(runtime: DesktopRuntime): void {
     if (path === '/' || path === '/index.html') {
       const html = readFileSync(runtime.frontendIndex(), 'utf8')
       return new Response(injectBootManifest(html, runtime.graph()), {
+        headers: { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': CSP },
+      })
+    }
+    if (path === '/terminal.html') {
+      const dir = runtime.frontendIndex().slice(0, runtime.frontendIndex().lastIndexOf('/'))
+      const html = readFileSync(join(dir, 'terminal.html'), 'utf8')
+      return new Response(html, {
         headers: { 'content-type': 'text/html; charset=utf-8', 'content-security-policy': CSP },
       })
     }

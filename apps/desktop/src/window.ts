@@ -102,6 +102,59 @@ export function handleDesktopWindowOpen(
 }
 
 /**
+ * Creates the terminal window over dsh://app/terminal.html. Unlike the main
+ * window it closes for real: a terminal session is user-owned and reaps on
+ * host dispose, so a hidden lingering window would only leak the session.
+ * @returns The owned terminal-window handle.
+ */
+export function createTerminalWindow(): DesktopWindowHandle {
+  const window = new BrowserWindow({
+    width: 800,
+    height: 600,
+    minWidth: 480,
+    minHeight: 320,
+    show: false,
+    backgroundColor: '#1e1e1e',
+    title: 'Terminal',
+    webPreferences: {
+      preload: join(__dirname, 'preload.cjs'),
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  })
+
+  const onReady = (): void => { showDesktopWindow(window) }
+  const onFrameNavigate = (event: Electron.Event<Electron.WebContentsWillFrameNavigateEventParams>): void => {
+    if (event.isMainFrame && !isDesktopNavigation(event.url)) event.preventDefault()
+  }
+  const onRedirect = (event: Electron.Event<Electron.WebContentsWillRedirectEventParams>): void => {
+    if (event.isMainFrame && !isDesktopNavigation(event.url)) event.preventDefault()
+  }
+
+  void window.loadURL('dsh://app/terminal.html')
+  window.once('ready-to-show', onReady)
+  window.webContents.on('will-frame-navigate', onFrameNavigate)
+  window.webContents.on('will-redirect', onRedirect)
+  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+
+  let disposed = false
+  return {
+    window,
+    show: () => { showDesktopWindow(window) },
+    dispose() {
+      if (disposed) return
+      disposed = true
+      window.off('ready-to-show', onReady)
+      window.webContents.off('will-frame-navigate', onFrameNavigate)
+      window.webContents.off('will-redirect', onRedirect)
+      window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+      if (!window.isDestroyed()) window.destroy()
+    },
+  }
+}
+
+/**
  * Creates the main window over the splash page; the host gate later loads dsh://app/.
  * @param resourcesDir Packaged resources directory containing the splash page.
  * @param isQuitting Reports whether final application shutdown has started.

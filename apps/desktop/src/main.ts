@@ -7,7 +7,6 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import type { DesktopHostHandle } from '@deepseek-ai/dsh-desktop-app/host-boot'
-import type { IpcInvokeRegistrar } from './host-glue/fetch-pump.ts'
 import {
   createDesktopShutdown,
   disposeDesktopShell,
@@ -37,11 +36,12 @@ import {
   type DesktopUpdateHandle,
   type DesktopUpdateNative,
 } from './updates.ts'
-import { createMainWindow, type DesktopWindowHandle } from './window.ts'
-import { mountFetchPump } from './host-glue/fetch-pump.ts'
+import { createMainWindow, createTerminalWindow, type DesktopWindowHandle } from './window.ts'
+import { mountFetchPump, type IpcWireRegistrar } from './host-glue/fetch-pump.ts'
 
 interface ShellState {
   window?: DesktopWindowHandle
+  terminalWindow?: DesktopWindowHandle
   tray?: DesktopTrayHandle
   host?: DesktopHostHandle
   pump?: { dispose(): void }
@@ -50,11 +50,11 @@ interface ShellState {
 
 const state: ShellState = {}
 
-/** Wraps ipcMain as the pump's injectable registrar. */
-function ipcFace(): IpcInvokeRegistrar {
+/** Wraps ipcMain as the pump's injectable registrar, carrying the invoking sender. */
+function ipcFace(): IpcWireRegistrar {
   return {
     handle: (channel, listener) => {
-      ipcMain.handle(channel, (_event, raw) => listener(raw))
+      ipcMain.handle(channel, (event, raw) => listener(event.sender, raw))
     },
     removeHandler: (channel) => { ipcMain.removeHandler(channel) },
   }
@@ -73,6 +73,7 @@ if (!app.requestSingleInstanceLock()) {
           disposeNativeListeners()
           state.tray?.dispose()
           state.window?.dispose()
+          state.terminalWindow?.dispose()
         },
       },
       updater: state.updater
@@ -145,6 +146,7 @@ async function bootPrimaryInstance(shutdown: DesktopShutdown): Promise<void> {
     process.platform,
     {
       show: () => { state.window?.show() },
+      openTerminal: openTerminalWindow,
       exportDiagnostics: runDiagnosticsExport,
       checkForUpdates: () => { void runUpdateCheck(shutdown) },
       switchProfile: (name) => { requestProfileSwitch(name, boot.profile, shutdown) },
@@ -187,9 +189,10 @@ async function bootPrimaryInstance(shutdown: DesktopShutdown): Promise<void> {
 
   state.host = host
   mountDshProtocol(host.runtime)
+  // One pump serves every window: requests stream back to the sender that
+  // asked, and the terminal window rides the same /api dispatch.
   state.pump = mountFetchPump(
     ipcFace(),
-    window.window.webContents,
     request => host.runtime.fetch(request),
   )
   await window.window.loadURL('dsh://app/')
@@ -216,6 +219,18 @@ async function bootPrimaryInstance(shutdown: DesktopShutdown): Promise<void> {
       }).catch(() => {})
     }
   }
+}
+
+/**
+ * Open the terminal window, creating it on first use or after it closed.
+ * A closed terminal window is disposed; reopening mints a fresh one whose
+ * renderer page spawns a new shell session.
+ */
+function openTerminalWindow(): void {
+  if (state.terminalWindow === undefined || state.terminalWindow.window.isDestroyed()) {
+    state.terminalWindow = createTerminalWindow()
+  }
+  state.terminalWindow.show()
 }
 
 /**

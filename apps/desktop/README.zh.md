@@ -8,7 +8,7 @@ DeepSeek Harness 桌面壳（Electron）。它把服务启动、运行管理和�
 
 ## 原生生命周期
 
-关闭窗口只会把它隐藏到原生托盘；Host 及其当前工作继续运行。**Show DeepSeek Harness**、双击托盘或再次启动应用都会恢复同一个单例窗口。托盘的 **Export diagnostics…** 命令会在 Harness home 下创建诊断归档，**Check for updates…** 则驱动更新能力。只有托盘的 **Quit** 命令或操作系统退出请求才会 dispose（资源释放）Host 并结束进程。资源释放的期限为五秒，超时后壳会强制以非零状态退出；重复的退出请求会立即升级。
+关闭窗口只会把它隐藏到原生托盘；Host 及其当前工作继续运行。**Show DeepSeek Harness**、双击托盘或再次启动应用都会恢复同一个单例窗口。托盘的 **Export diagnostics…** 命令会在 Harness home 下创建诊断归档，**Check for updates…** 则驱动更新能力。**Open Terminal** 会打开一个独立的终端窗口，由宿主侧的 `terminalManager` Remote 支撑：渲染器页面通过 subprocess seam 启动用户 shell，并经由同一条 IPC pump 流式传输输入、输出、尺寸调整与信号；关闭窗口即结束会话。只有托盘的 **Quit** 命令或操作系统退出请求才会 dispose（资源释放）Host 并结束进程。资源释放的期限为五秒，超时后壳会强制以非零状态退出；重复的退出请求会立即升级。
 
 ## 配置文件（Profiles）
 

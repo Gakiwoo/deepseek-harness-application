@@ -5,6 +5,7 @@ import type { DesktopProfile } from '../src/profile-switch.ts'
 function trayOptions(overrides: Partial<DesktopTrayOptions> = {}): DesktopTrayOptions {
   return {
     show: vi.fn(),
+    openTerminal: vi.fn(),
     exportDiagnostics: vi.fn(),
     checkForUpdates: vi.fn(),
     switchProfile: vi.fn(),
@@ -70,6 +71,7 @@ describe('desktop tray', () => {
 
     expect(fake.menuTemplate.map(item => item.label ?? item.type)).toEqual([
       'Show DeepSeek Harness',
+      'Open Terminal',
       'separator',
       'Profile',
       'separator',
@@ -80,10 +82,12 @@ describe('desktop tray', () => {
     ])
     fake.menuTemplate[0]?.click?.()
     fake.listeners.get('double-click')?.()
-    fake.menuTemplate[4]?.click?.()
+    fake.menuTemplate[1]?.click?.()
     fake.menuTemplate[5]?.click?.()
-    fake.menuTemplate[7]?.click?.()
+    fake.menuTemplate[6]?.click?.()
+    fake.menuTemplate[8]?.click?.()
     expect(options.show).toHaveBeenCalledTimes(2)
+    expect(options.openTerminal).toHaveBeenCalledOnce()
     expect(options.exportDiagnostics).toHaveBeenCalledOnce()
     expect(options.checkForUpdates).toHaveBeenCalledOnce()
     expect(options.requestQuit).toHaveBeenCalledWith(0)
@@ -100,7 +104,7 @@ describe('desktop tray', () => {
     ]
     createDesktopTray(fake.native, 'linux', trayOptions({ switchProfile, profiles }))
 
-    const profile = fake.menuTemplate[2]
+    const profile = fake.menuTemplate[3]
     expect(profile?.submenu?.map(item => ({ label: item.label, checked: item.checked, enabled: item.enabled }))).toEqual([
       { label: 'custom', checked: true, enabled: true },
       { label: 'desktop', checked: false, enabled: true },
