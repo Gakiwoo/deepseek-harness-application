@@ -87,6 +87,15 @@ export async function bootDesktopHost(options: BootDesktopHostOptions): Promise<
   const runtimeOverlay = hasRuntimeRow
     ? [{ id: 'desktop-runtime', config: { frontendIndex: options.frontendIndexPath } } satisfies PatchOptions]
     : []
+  // Pin the booted profile on the plugin-manager row when the composition
+  // carries it (the shipped desktop patch always does); a custom profile that
+  // dropped the row gets no overlay and plugin mutations then target the
+  // row's config default.
+  const hasPluginManagerRow = composeEntries([bundlePatches, profile.patches, homePatches])
+    .some(row => row.id === 'plugin-manager')
+  const pluginManagerOverlay: PatchOptions[] = hasPluginManagerRow
+    ? [{ id: 'plugin-manager', config: { profile: profile.name } } satisfies PatchOptions]
+    : []
   // The SHIPPED preset root is the part of the roster only this launcher can
   // resolve: it sits beside this package's own config, in both the source and
   // the deployed closure layouts. The writable root the roster appends is
@@ -112,6 +121,7 @@ export async function bootDesktopHost(options: BootDesktopHostOptions): Promise<
     ...loadOptionalPatches(NAME, profile.patchPath) ?? [],
     ...loadOptionalPatches(NAME, join(home, PROFILE_PATCH_FILENAME)) ?? [],
     ...presetOverlay,
+    ...pluginManagerOverlay,
     ...runtimeOverlay,
   ])
   const ctx = await boot(NAME, join(profile.dir, 'cordis.yml'), structuredClone([
@@ -119,6 +129,7 @@ export async function bootDesktopHost(options: BootDesktopHostOptions): Promise<
     ...profile.patches,
     ...homePatches,
     ...presetOverlay,
+    ...pluginManagerOverlay,
     ...runtimeOverlay,
   ]), (hostCtx) => {
     // Before any config-tree entry mounts, so plugins resolve all launch-time

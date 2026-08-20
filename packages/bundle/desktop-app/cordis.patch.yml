@@ -91,6 +91,11 @@
     - id: plugin-inventory
       name: '@deepseek-ai/dsh-host-plugin-inventory'
 
+    # Profile plugin mutation: install/remove through pnpm; the host-boot
+    # overlay pins the booted profile into this row's config.
+    - id: plugin-manager
+      name: '@deepseek-ai/dsh-host-plugin-manager'
+
     # The API gateway: the transport-agnostic dispatch face every client shape
     # shares. The base layer's agent-default-model service owns the default model.
     - id: api-gateway

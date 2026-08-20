@@ -6,7 +6,7 @@ dsh 桌面表层组合包。[`cordis.patch.yml`](cordis.patch.yml) 叠加在 [`d
 
 connection 行持有桌面传输的两端：节点半边提供 IPC 泵消费的 `/api` 分发面（`ctx.connection.fetch`）；浏览器半边是 `__DSH_DESKTOP__` 桥选用的 `DesktopApiClient` 载体。没有 Web 服务器、没有 HMR、也没有 LAN 暴露——桌面传输是一条私有的进程内 IPC 通道。
 
-本包还导出 `host-boot`，即桌面壳从打包后的宿主闭包导入的 Electron 无关 profile 启动器。它把 desktop profile 组合到空条目列表之上、结算整棵树，并返回 `desktopRuntime` 句柄。这样壳与插件树共享同一个 Cordis 实例。
+本包还导出 `host-boot`，即桌面壳从打包后的宿主闭包导入的 Electron 无关 profile 启动器。它把 desktop profile 组合到空条目列表之上、结算整棵树，并返回 `desktopRuntime` 句柄。这样壳与插件树共享同一个 Cordis 实例。当组合包含 `plugin-manager` 行时它挂载该行，并把实际启动的 profile 钉入该行配置，因此 profile 插件变更针对的正是正在运行的 profile。
 
 [`dsh-web-app`](../web-app/README.md) 是同一 base 之上的浏览器表层兄弟包；[`dsh-headless`](../headless/README.md) 是一次性运行器。
 

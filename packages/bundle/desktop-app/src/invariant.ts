@@ -42,4 +42,7 @@ export function assertDesktopTree(ctx: Context): void {
   if (ctx.get('apiProxy') === undefined) {
     throw new Error('desktop-app: the tree settled without apiProxy — the IPC carrier would 404 every call')
   }
+  if (ctx.get('pluginManager') === undefined) {
+    throw new Error('desktop-app: the tree settled without pluginManager — profile plugin mutation RPCs would 404')
+  }
 }

@@ -6,7 +6,7 @@ The dsh desktop-surface bundle. [`cordis.patch.yml`](cordis.patch.yml) rides ove
 
 The connection row owns both ends of the desktop transport: the node half provides the `/api` dispatch face (`ctx.connection.fetch`) that the IPC pump consumes; the browser half is the `DesktopApiClient` carrier selected by the `__DSH_DESKTOP__` bridge. There is no web server, no HMR, and no LAN exposure — the desktop transport is a private process-local IPC channel.
 
-This bundle also exports `host-boot`, the Electron-free profile boot that the desktop shell imports from the packaged host closure. That boot composes the desktop profile over the empty entry list, settles the tree, and returns the `desktopRuntime` handle. The shell and the plugin tree thus share one Cordis instance.
+This bundle also exports `host-boot`, the Electron-free profile boot that the desktop shell imports from the packaged host closure. That boot composes the desktop profile over the empty entry list, settles the tree, and returns the `desktopRuntime` handle. The shell and the plugin tree thus share one Cordis instance. It mounts the `plugin-manager` row when the composition carries it and pins the booted profile into that row's config, so profile plugin mutations target the profile that is actually running.
 
 [`dsh-web-app`](../web-app/README.md) is the sibling browser-surface bundle over the same base; [`dsh-headless`](../headless/README.md) is the one-shot runner.
 
