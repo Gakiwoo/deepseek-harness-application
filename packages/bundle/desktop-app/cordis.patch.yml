@@ -96,6 +96,10 @@
     - id: plugin-manager
       name: '@deepseek-ai/dsh-host-plugin-manager'
 
+    # User-owned interactive terminals for the desktop terminal window.
+    - id: terminal-manager
+      name: '@deepseek-ai/dsh-host-terminal-manager'
+
     # The API gateway: the transport-agnostic dispatch face every client shape
     # shares. The base layer's agent-default-model service owns the default model.
     - id: api-gateway

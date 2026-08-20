@@ -1,10 +1,11 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { homedir } from 'node:os'
-import { PassThrough, type Readable } from 'node:stream'
+import { PassThrough } from 'node:stream'
 import { Context } from '@deepseek-ai/cordis'
 import type {
   SubprocessOutcome,
   SubprocessTerminalHandle,
+  SubprocessTerminalSignal,
   SubprocessTerminalSpawnSpec,
 } from '@deepseek-ai/dsh-subprocess'
 import { remoteMethods } from '@deepseek-ai/dsh-typert-protocol'
@@ -17,12 +18,12 @@ afterEach(async () => {
 })
 
 interface FakeHandle extends SubprocessTerminalHandle {
-  output: Readable
+  output: PassThrough
   done: Promise<SubprocessOutcome>
-  write: ReturnType<typeof vi.fn>
-  resize: ReturnType<typeof vi.fn>
-  signalForeground: ReturnType<typeof vi.fn>
-  terminate: ReturnType<typeof vi.fn>
+  write: Mock<(data: string) => Promise<void>>
+  resize: Mock<(cols: number, rows: number) => Promise<void>>
+  signalForeground: Mock<(signal: SubprocessTerminalSignal) => Promise<number>>
+  terminate: Mock<() => Promise<void>>
   settle: (outcome: SubprocessOutcome) => void
 }
 
@@ -33,9 +34,10 @@ function fakeHandle(): FakeHandle {
     pid: 4242,
     output,
     done: done.promise,
-    write: vi.fn(async () => {}),
-    resize: vi.fn(async () => {}),
-    signalForeground: vi.fn(async () => 4242),
+    write: vi.fn(async (_data: string) => {}),
+    resize: vi.fn(async (_cols: number, _rows: number) => {}),
+    inspectForeground: vi.fn(async () => undefined),
+    signalForeground: vi.fn(async (_signal: SubprocessTerminalSignal) => 4242),
     terminate: vi.fn(async () => {}),
     settle: done.resolve,
   }

@@ -13,10 +13,8 @@ import { randomUUID } from 'node:crypto'
 import { homedir } from 'node:os'
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import type {
-  SubprocessTerminalHandle,
-  SubprocessTerminalSignal,
-} from '@deepseek-ai/dsh-subprocess'
+import type { SubprocessTerminalHandle } from '@deepseek-ai/dsh-subprocess'
+import type { SubprocessTerminalSignal } from '@deepseek-ai/dsh-subprocess/types'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 // Typert-generated ./typert and ./remote artifacts import Zod at runtime.
 import type {} from 'zod'
@@ -161,13 +159,13 @@ export class TerminalManagerGateway extends TypertRemoteService {
   /**
    * Deliver a signal to a session's foreground process group; dropped after the shell exits.
    * @param sessionId - the session to signal.
-   * @param signal - the permitted terminal signal.
+   * @param terminalSignal - the permitted terminal signal.
    */
   @Remote('signal')
-  async signal(sessionId: TerminalSessionId, signal: SubprocessTerminalSignal): Promise<void> {
+  async signal(sessionId: TerminalSessionId, terminalSignal: SubprocessTerminalSignal): Promise<void> {
     const session = this.requireSession(sessionId)
     if (session.exited) return
-    await session.handle.signalForeground(signal)
+    await session.handle.signalForeground(terminalSignal)
   }
 
   /**

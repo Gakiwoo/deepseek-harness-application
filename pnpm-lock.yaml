@@ -905,6 +905,9 @@ importers:
       '@deepseek-ai/dsh-host-plugin-manager':
         specifier: workspace:^
         version: link:../../host/plugin-manager
+      '@deepseek-ai/dsh-host-terminal-manager':
+        specifier: workspace:^
+        version: link:../../host/terminal-manager
       '@deepseek-ai/dsh-invariants':
         specifier: workspace:^
         version: link:../../runtime-diagnostics/invariants
@@ -1508,6 +1511,9 @@ importers:
       '@deepseek-ai/dsh-host-plugin-manager':
         specifier: workspace:^
         version: link:../../host/plugin-manager
+      '@deepseek-ai/dsh-host-terminal-manager':
+        specifier: workspace:^
+        version: link:../../host/terminal-manager
       '@deepseek-ai/dsh-host-webserver':
         specifier: workspace:^
         version: link:../../host/webserver

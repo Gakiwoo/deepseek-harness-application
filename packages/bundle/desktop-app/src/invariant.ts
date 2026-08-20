@@ -45,4 +45,7 @@ export function assertDesktopTree(ctx: Context): void {
   if (ctx.get('pluginManager') === undefined) {
     throw new Error('desktop-app: the tree settled without pluginManager — profile plugin mutation RPCs would 404')
   }
+  if (ctx.get('terminalManager') === undefined) {
+    throw new Error('desktop-app: the tree settled without terminalManager — terminal RPCs would 404')
+  }
 }
