@@ -8,7 +8,7 @@ DeepSeek Harness 桌面壳（Electron）。它把服务启动、运行管理和�
 
 ## 原生生命周期
 
-关闭窗口只会把它隐藏到原生托盘；Host 及其当前工作继续运行。**Show DeepSeek Harness**、双击托盘或再次启动应用都会恢复同一个单例窗口。只有托盘的 **Quit** 命令或操作系统退出请求才会 dispose（资源释放）Host 并结束进程。资源释放的期限为五秒，超时后壳会强制以非零状态退出；重复的退出请求会立即升级。本版本的托盘只包含 **Show DeepSeek Harness** 和 **Quit**。
+关闭窗口只会把它隐藏到原生托盘；Host 及其当前工作继续运行。**Show DeepSeek Harness**、双击托盘或再次启动应用都会恢复同一个单例窗口。托盘的 **Export diagnostics…** 命令会在 Harness home 下创建诊断归档。只有托盘的 **Quit** 命令或操作系统退出请求才会 dispose（资源释放）Host 并结束进程。资源释放的期限为五秒，超时后壳会强制以非零状态退出；重复的退出请求会立即升级。
 
 ## 开发
 
@@ -27,6 +27,8 @@ pnpm run pack:desktop
 ```
 
 这会把宿主闭包部署到 `apps/desktop/resources/host`，把桌面模式前端构建到 `resources/frontend`，打包壳，针对 Electron ABI 重建 `node-pty`，然后运行 electron-builder。产物落在 `apps/desktop/dist/`（mac dmg/zip、win nsis/zip），设置 `DSH_DESKTOP_ARCH` 时按该架构选择。
+
+每次打包都以打包运行时验证收尾（`pnpm run verify:packed`，[scripts/verify-packaged-runtime.ts](../../scripts/verify-packaged-runtime.ts)）：在纯 Node 下用临时 Harness home 启动部署后的宿主闭包，并通过 IPC 线客户端创建一个空会话；断言打包产物携带 `THIRD_PARTY_NOTICES.md`；启动打包后的可执行文件，确认渲染进程达到就绪（`lastGood` 启动状态）。无头 Linux 或设置 `DSH_VERIFY_SKIP_LIVE=1` 时跳过实机启动检查；其余检查仍会运行。
 
 ### 未签名产物
 

@@ -28,6 +28,8 @@ Main-process failures and non-clean renderer crashes write a timestamped JSON sn
 
 The tray "Export diagnostics…" command creates `$DSH_HOME/exports/diagnostics-<timestamp>.tar.gz` — the diagnostics directory, the session logs, and an environment-facts file, packed with the platform `tar` — and reports the archive path in a dialog ([`apps/desktop/src/diagnostics-export.ts`](../../apps/desktop/src/diagnostics-export.ts)).
 
+Every pack ends with the packaged-runtime verification ([`scripts/verify-packaged-runtime.ts`](../../scripts/verify-packaged-runtime.ts)): it boots the deployed host closure under plain Node with a temp Harness home and creates one empty session through the IPC-wire client, asserts the packaged bundle carries `THIRD_PARTY_NOTICES.md`, and launches the packaged executable to confirm the renderer reaches readiness (the `lastGood` startup state, skipped on headless Linux or with `DSH_VERIFY_SKIP_LIVE=1`). The packaged host boot resolves the deployed closure root at `resources/host/lib/host-boot.js`; the deploy lands the desktop-app package at the host root, not under `node_modules`.
+
 ## The service
 
 `desktopRuntime` (defined in [`packages/bundle/desktop-app/src/index.ts`](../../packages/bundle/desktop-app/src/index.ts)) exposes the four reads above; signatures are in the generated [service catalog](#ctxdesktopruntime--desktopruntime). The glue also registers the `app:desktop-surface` prompt section, orienting newly created sessions to the desktop window (no URL, port, or browser tab; no hot reload; native dialogs available through the usual host tools).

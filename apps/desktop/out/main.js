@@ -1,9 +1,29 @@
 "use strict";
 
 // src/main.ts
+var import_node_crypto2 = require("node:crypto");
 var import_electron4 = require("electron");
-var import_node_path2 = require("node:path");
+var import_node_path6 = require("node:path");
 var import_node_url = require("node:url");
+
+// ../../packages/util/home-paths/lib/index.js
+var import_node_os = require("node:os");
+var import_node_path = require("node:path");
+var DSH_HOME_DIR_NAME = ".dsh";
+var DEFAULT_DSH_HOME_DISPLAY = `~/${DSH_HOME_DIR_NAME}`;
+var DSH_HOME_ENV = "DSH_HOME";
+function defaultDshHome() {
+  return (0, import_node_path.join)((0, import_node_os.homedir)(), DSH_HOME_DIR_NAME);
+}
+function expandHomePath(path) {
+  if (path === "~") return (0, import_node_os.homedir)();
+  if (path.startsWith("~/") || path.startsWith("~\\")) return (0, import_node_path.join)((0, import_node_os.homedir)(), path.slice(2));
+  return path;
+}
+function resolveDshHome(configured, env = process.env) {
+  const fromEnv = env[DSH_HOME_ENV];
+  return (0, import_node_path.resolve)(expandHomePath(configured ?? (fromEnv !== void 0 && fromEnv.trim().length > 0 ? fromEnv : defaultDshHome())));
+}
 
 // src/lifecycle.ts
 var DESKTOP_SHUTDOWN_TIMEOUT_MS = 5e3;
@@ -29,21 +49,21 @@ function createDesktopShutdown(dispose, exit, timeoutMs = DESKTOP_SHUTDOWN_TIMEO
         exitOnce(code);
         return pending;
       }
-      pending = new Promise((resolve) => {
+      pending = new Promise((resolve2) => {
         const timeout = setTimeout(() => {
           exitOnce(code === 0 ? 1 : code);
-          resolve();
+          resolve2();
         }, timeoutMs);
         void dispose().then(
           () => {
             clearTimeout(timeout);
             exitOnce(code);
-            resolve();
+            resolve2();
           },
           () => {
             clearTimeout(timeout);
             exitOnce(code === 0 ? 1 : code);
-            resolve();
+            resolve2();
           }
         );
       });
@@ -114,6 +134,251 @@ function mountDshProtocol(runtime) {
   });
 }
 
+// src/crash-evidence.ts
+var import_node_fs2 = require("node:fs");
+var import_node_os2 = require("node:os");
+var import_node_path2 = require("node:path");
+function collectEnvironmentFacts(options) {
+  const runtime = options.versions ?? process.versions;
+  return {
+    appVersion: options.appVersion,
+    ...runtime.electron !== void 0 ? { electronVersion: runtime.electron } : {},
+    ...runtime.chrome !== void 0 ? { chromeVersion: runtime.chrome } : {},
+    nodeVersion: runtime.node ?? "",
+    platform: options.platform,
+    arch: options.arch,
+    packaged: options.packaged,
+    uptimeMs: options.uptimeMs ?? Math.round(process.uptime() * 1e3),
+    home: (0, import_node_os2.homedir)(),
+    dshHome: resolveDshHome(void 0, options.env),
+    path: options.env.PATH ?? ""
+  };
+}
+function buildCrashEvidence(options) {
+  return {
+    at: (/* @__PURE__ */ new Date()).toISOString(),
+    reason: options.reason,
+    ...options.detail !== void 0 ? { detail: options.detail } : {},
+    ...collectEnvironmentFacts(options)
+  };
+}
+function crashEvidenceDir(env = process.env) {
+  return (0, import_node_path2.join)(resolveDshHome(void 0, env), "diagnostics");
+}
+function writeCrashEvidence(dir, evidence) {
+  (0, import_node_fs2.mkdirSync)(dir, { recursive: true });
+  const file = (0, import_node_path2.join)(dir, `crash-${evidence.at.replace(/[:.]/g, "-")}.json`);
+  (0, import_node_fs2.writeFileSync)(file, `${JSON.stringify(evidence, null, 2)}
+`);
+  return file;
+}
+
+// src/diagnostics-export.ts
+var import_node_child_process = require("node:child_process");
+var import_node_fs3 = require("node:fs");
+var import_node_path3 = require("node:path");
+var ARCHIVE_MEMBERS = ["diagnostics", "sessions"];
+function collectDiagnosticsFacts(options, sessionsDir) {
+  return {
+    ...collectEnvironmentFacts(options),
+    sessionLogs: listSessionLogs(sessionsDir)
+  };
+}
+async function exportDiagnosticsArchive(home, facts, spawnChild = (argv) => (0, import_node_child_process.spawn)("tar", argv, { stdio: ["ignore", "pipe", "ignore"] })) {
+  const diagnosticsDir = (0, import_node_path3.join)(home, "diagnostics");
+  (0, import_node_fs3.mkdirSync)(diagnosticsDir, { recursive: true });
+  (0, import_node_fs3.writeFileSync)((0, import_node_path3.join)(diagnosticsDir, "export-facts.json"), `${JSON.stringify(facts, null, 2)}
+`);
+  const members = ARCHIVE_MEMBERS.filter((member) => (0, import_node_fs3.existsSync)((0, import_node_path3.join)(home, member)));
+  const outputDir = (0, import_node_path3.join)(home, "exports");
+  (0, import_node_fs3.mkdirSync)(outputDir, { recursive: true });
+  const output = (0, import_node_path3.join)(outputDir, `diagnostics-${(/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-")}.tar.gz`);
+  const code = await waitForExit(spawnChild(["-czf", output, "-C", home, ...members]));
+  if (code !== 0) {
+    throw new Error(`tar exited with code ${String(code)} while creating the diagnostics archive`);
+  }
+  return output;
+}
+function waitForExit(child) {
+  return new Promise((resolve2, reject) => {
+    child.on("error", (error) => {
+      reject(error);
+    });
+    child.on("close", (code) => {
+      resolve2(code);
+    });
+  });
+}
+function listSessionLogs(root) {
+  if (!(0, import_node_fs3.existsSync)(root)) return [];
+  try {
+    return (0, import_node_fs3.readdirSync)(root, { recursive: true, encoding: "utf8" }).sort();
+  } catch {
+    return [];
+  }
+}
+
+// src/shell-environment.ts
+var import_node_child_process2 = require("node:child_process");
+var import_node_fs4 = require("node:fs");
+var import_node_path4 = require("node:path");
+var SHELL_FILL_ALLOWLIST = /* @__PURE__ */ new Set([
+  "LANG",
+  "LC_ALL",
+  "LC_CTYPE",
+  "LC_COLLATE",
+  "LC_MESSAGES",
+  "LC_NUMERIC",
+  "LC_MONETARY",
+  "LC_PAPER",
+  "LC_TIME",
+  "LC_IDENTIFICATION",
+  "TZ",
+  "NVM_DIR",
+  "NVM_BIN",
+  "RUSTUP_HOME",
+  "CARGO_HOME",
+  "GOPATH",
+  "PYENV_ROOT",
+  "CONDA_HOME",
+  "CONDA_PREFIX",
+  "VIRTUAL_ENV",
+  "ASDF_DATA_DIR",
+  "MISE_DATA_DIR",
+  "SDKMAN_DIR",
+  "PNPM_HOME",
+  "COREPACK_HOME",
+  "NPM_CONFIG_PREFIX",
+  "YARN_CACHE_FOLDER"
+]);
+var SUPPORTED_SHELL_BASENAMES = ["zsh", "bash"];
+var FALLBACK_SHELLS = ["/bin/zsh", "/bin/bash"];
+var DEFAULT_TIMEOUT_MS = 2e3;
+var DEFAULT_MAX_BYTES = 64 * 1024;
+function parseExportOutput(raw) {
+  const env = /* @__PURE__ */ new Map();
+  for (const line of raw.split("\n")) {
+    const match = /^(?:declare -x |export |typeset -x )?([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(line.trim());
+    if (match === null) continue;
+    env.set(match[1], unquoteExportValue(match[2]));
+  }
+  return env;
+}
+function resolveShellPath(shell2, shellExists = import_node_fs4.existsSync) {
+  if (shell2 !== void 0 && SUPPORTED_SHELL_BASENAMES.includes((0, import_node_path4.basename)(shell2)) && shellExists(shell2)) {
+    return shell2;
+  }
+  return FALLBACK_SHELLS.find(shellExists);
+}
+async function captureExportOutput(options) {
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
+  const child = options.spawnChild === void 0 ? (0, import_node_child_process2.spawn)(options.shell, ["-ilc", "export -p"], { stdio: ["ignore", "pipe", "ignore"] }) : options.spawnChild(options.shell, ["-ilc", "export -p"]);
+  return await new Promise((resolve2) => {
+    let stdout = "";
+    const timer = setTimeout(() => {
+      child.kill();
+      resolve2(void 0);
+    }, timeoutMs);
+    const finish = (env) => {
+      clearTimeout(timer);
+      resolve2(env);
+    };
+    child.stdout?.on("data", (chunk) => {
+      stdout += chunk.toString();
+      if (stdout.length > maxBytes) {
+        child.kill();
+        finish(parseExportOutput(stdout.slice(0, maxBytes)));
+      }
+    });
+    child.stdout?.on("error", () => {
+      finish(void 0);
+    });
+    child.on("error", () => {
+      finish(void 0);
+    });
+    child.on("close", (code) => {
+      if (code === 0) finish(parseExportOutput(stdout));
+      else finish(void 0);
+    });
+  });
+}
+async function recoverShellEnvironment(options) {
+  if (!options.enabled) return [];
+  const shell2 = resolveShellPath(options.shell, options.shellExists);
+  if (shell2 === void 0) return [];
+  const captured = await captureExportOutput({
+    shell: shell2,
+    timeoutMs: options.timeoutMs,
+    maxBytes: options.maxBytes,
+    spawnChild: options.spawnChild
+  });
+  if (captured === void 0) return [];
+  const target = options.target ?? process.env;
+  const imported = [];
+  const shellPath = captured.get("PATH");
+  if (shellPath !== void 0 && shellPath !== "") {
+    target.PATH = shellPath;
+    imported.push("PATH");
+  }
+  for (const name of SHELL_FILL_ALLOWLIST) {
+    const value = captured.get(name);
+    if (value !== void 0 && target[name] === void 0) {
+      target[name] = value;
+      imported.push(name);
+    }
+  }
+  return imported.sort();
+}
+function unquoteExportValue(raw) {
+  if (raw.startsWith('"') && raw.endsWith('"')) {
+    return raw.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+  }
+  if (raw.startsWith("'") && raw.endsWith("'")) {
+    return raw.slice(1, -1);
+  }
+  return raw;
+}
+
+// src/startup-state.ts
+var import_node_crypto = require("node:crypto");
+var import_node_fs5 = require("node:fs");
+function beginStartup(stateFile, launchId = (0, import_node_crypto.randomUUID)(), at = Date.now()) {
+  const state2 = readStartupState(stateFile);
+  const recovered = state2.pending !== void 0 && state2.pending.launchId !== launchId;
+  writeStartupState(stateFile, { lastGood: state2.lastGood, pending: { launchId, at } });
+  if (recovered) return { recovered, previousAttempt: state2.pending };
+  return { recovered };
+}
+function commitStartup(stateFile) {
+  const state2 = readStartupState(stateFile);
+  if (state2.pending === void 0) return;
+  writeStartupState(stateFile, { lastGood: state2.pending });
+}
+function readStartupState(stateFile) {
+  if (!(0, import_node_fs5.existsSync)(stateFile)) return {};
+  try {
+    const parsed = JSON.parse((0, import_node_fs5.readFileSync)(stateFile, "utf8"));
+    return {
+      ...isStartupRecord(parsed.lastGood) ? { lastGood: parsed.lastGood } : {},
+      ...isStartupRecord(parsed.pending) ? { pending: parsed.pending } : {}
+    };
+  } catch {
+    return {};
+  }
+}
+function writeStartupState(stateFile, state2) {
+  const tmpFile = `${stateFile}.tmp`;
+  (0, import_node_fs5.writeFileSync)(tmpFile, `${JSON.stringify(state2, null, 2)}
+`);
+  (0, import_node_fs5.renameSync)(tmpFile, stateFile);
+}
+function isStartupRecord(value) {
+  if (typeof value !== "object" || value === null) return false;
+  const record = value;
+  return typeof record.launchId === "string" && typeof record.at === "number";
+}
+
 // src/tray.ts
 var import_electron2 = require("electron");
 var TEMPLATE_TRAY_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAAAsTAAALEwEAmpwYAAACWUlEQVRYhe2WTYiOURTHf2aYD2SkqclqfCxI+YoaseC1GGJnDAslUxZY2JBioaRZsDArkZ1pWOhNpiZEahYijK9iZjOrSTGmhhjSGEa3/q+O233mPo/Xu/L+69TznHu+7rn3nHugjDJKg3lA7l8anAvU6nsOsA/oBgaBx8AsT/4I0F+Mw2XABRn5AUyKRoBv5t9RU0D/utYuAw0JPppCWaoCOoCfnpOpaG3A+C2z/hFYJ/4CYAtwAvgCnLZKlUBPBscFGga2egGc92QeAFcDuq1W6cxfOC/Qd6DN2NqUQucDMLOgsAQYLyKASR3bYRPElYj8Xrv7ziKd2yAOmPvUFZBxd2KPdT4dGNXiENAHvCsyiFOyu9PwnwAtwGz/xq6WQK/HXwgcAl5FHE4AD1Wilv9amyn8u4sZxDYJ3E8SAHYDbxMC6FeZuQZ1Y4pAjycZ3yUBl/ZYe+0NGP6sO7QDqAFeJATgl+pv5IzQ4kgQ1Qm7/ATsl8yaQCMbV4aCWGQEjxKH6/vPAkE8BeYrU2+8tXsxo0PmPCtSBNGocgpVwESA/0fZhXDJCLs7kQZtKcvSvZgzYsaWm3Nz6atLGUR3ip7gHp9UyBvFm2okfpAngXrDqw+ct6VzZECD1wHzZghxWCX+e2C74W/Q0+o7vxPYRBQ54Ksx8hxYadYfmdR2qCxRmv1BxfWMZmBa1iA2A2PeObqx67aeXevkpTppjfSGA5kYUGlmwlKvj6chN7qdVS/JK1t3gXYNO5lRBRxUGcWcu3dkIyVCJbAeOKYh85roogaQFaVyXMb/gV/dRWbOp9K5uAAAAABJRU5ErkJggg==";
@@ -125,7 +390,7 @@ var electronTrayNative = {
   },
   createTray: (image) => new import_electron2.Tray(image)
 };
-function createDesktopTray(native, platform, show, requestQuit) {
+function createDesktopTray(native, platform, show, exportDiagnostics, requestQuit) {
   const macOS = platform === "darwin";
   const source = macOS ? TEMPLATE_TRAY_ICON : BLUE_TRAY_ICON;
   const size = macOS ? 18 : 20;
@@ -134,6 +399,8 @@ function createDesktopTray(native, platform, show, requestQuit) {
   if (image.isEmpty()) throw new Error("desktop tray icon is empty");
   const template = [
     { label: "Show DeepSeek Harness", click: show },
+    { type: "separator" },
+    { label: "Export diagnostics\u2026", click: exportDiagnostics },
     { type: "separator" },
     { label: "Quit", click: () => {
       requestQuit(0);
@@ -156,7 +423,7 @@ function createDesktopTray(native, platform, show, requestQuit) {
 
 // src/window.ts
 var import_electron3 = require("electron");
-var import_node_path = require("node:path");
+var import_node_path5 = require("node:path");
 var EXTERNAL_PROTOCOLS = /* @__PURE__ */ new Set(["http:", "https:", "mailto:"]);
 function showDesktopWindow(window) {
   if (window.isDestroyed()) return;
@@ -197,7 +464,7 @@ function createMainWindow(resourcesDir, isQuitting, reportExternalOpenError2) {
     backgroundColor: "#1e1e1e",
     title: "DeepSeek Harness",
     webPreferences: {
-      preload: (0, import_node_path.join)(__dirname, "preload.cjs"),
+      preload: (0, import_node_path5.join)(__dirname, "preload.cjs"),
       sandbox: true,
       contextIsolation: true,
       nodeIntegration: false
@@ -215,7 +482,7 @@ function createMainWindow(resourcesDir, isQuitting, reportExternalOpenError2) {
   const onRedirect = (event) => {
     if (event.isMainFrame && !isDesktopNavigation(event.url)) event.preventDefault();
   };
-  void window.loadFile((0, import_node_path.join)(resourcesDir, "splash.html"));
+  void window.loadFile((0, import_node_path5.join)(resourcesDir, "splash.html"));
   window.once("ready-to-show", onReady);
   window.on("close", onClose);
   window.webContents.on("will-frame-navigate", onFrameNavigate);
@@ -386,29 +653,39 @@ if (!import_electron4.app.requestSingleInstanceLock()) {
   }
 }
 async function bootPrimaryInstance(shutdown) {
-  const resourcesDir = import_electron4.app.isPackaged ? process.resourcesPath : (0, import_node_path2.join)(import_electron4.app.getAppPath(), "resources");
+  const stateFile = (0, import_node_path6.join)(import_electron4.app.getPath("userData"), "startup-state.json");
+  const startup = beginStartup(stateFile, (0, import_node_crypto2.randomUUID)());
+  await recoverShellEnvironment({
+    enabled: import_electron4.app.isPackaged || process.env.DSH_DESKTOP_SHELL_ENV === "1"
+  });
+  const resourcesDir = import_electron4.app.isPackaged ? process.resourcesPath : (0, import_node_path6.join)(import_electron4.app.getAppPath(), "resources");
   const window = createMainWindow(
     resourcesDir,
     () => shutdown.isPending(),
     reportExternalOpenError
   );
   state.window = window;
+  window.window.webContents.on("render-process-gone", (_event, details) => {
+    if (details.reason === "clean-exit") return;
+    recordCrashEvidence(`renderer ${details.reason}`, `exitCode: ${details.exitCode}`);
+  });
   state.tray = createDesktopTray(
     electronTrayNative,
     process.platform,
     () => {
       state.window?.show();
     },
+    runDiagnosticsExport,
     (code) => {
       void shutdown.request(code);
     }
   );
-  const hostBootPath = import_electron4.app.isPackaged ? (0, import_node_path2.join)(process.resourcesPath, "host", "node_modules", "@deepseek-ai", "dsh-desktop-app", "lib", "host-boot.js") : (0, import_node_path2.join)(import_electron4.app.getAppPath(), "node_modules", "@deepseek-ai", "dsh-desktop-app", "lib", "host-boot.js");
+  const hostBootPath = import_electron4.app.isPackaged ? (0, import_node_path6.join)(process.resourcesPath, "host", "lib", "host-boot.js") : (0, import_node_path6.join)(import_electron4.app.getAppPath(), "node_modules", "@deepseek-ai", "dsh-desktop-app", "lib", "host-boot.js");
   const { bootDesktopHost } = await import((0, import_node_url.pathToFileURL)(hostBootPath).href);
   let host;
   try {
     host = await bootDesktopHost({
-      frontendIndexPath: (0, import_node_path2.join)(resourcesDir, "frontend", "index.html"),
+      frontendIndexPath: (0, import_node_path6.join)(resourcesDir, "frontend", "index.html"),
       requestExit: (code) => {
         void shutdown.request(code);
       }
@@ -425,14 +702,71 @@ async function bootPrimaryInstance(shutdown) {
     (request) => host.runtime.fetch(request)
   );
   await window.window.loadURL("dsh://app/");
+  commitStartup(stateFile);
+  if (startup.recovered) {
+    process.stderr.write(`[desktop] previous launch ${startup.previousAttempt?.launchId ?? "unknown"} did not complete
+`);
+    if (import_electron4.app.isPackaged) {
+      void import_electron4.dialog.showMessageBox(window.window, {
+        type: "warning",
+        title: "DeepSeek Harness",
+        message: "The previous launch did not complete.",
+        detail: "The previous launch exited before the window was ready, usually because it crashed or was force-quit. If this keeps happening, report it with the log files from the Harness home directory.",
+        buttons: ["OK"]
+      }).catch(() => {
+      });
+    }
+  }
 }
 function reportFailure(title, error, shutdown) {
   const message = error instanceof Error ? error.stack ?? error.message : String(error);
+  recordCrashEvidence(title, message);
   import_electron4.dialog.showErrorBox("DeepSeek Harness", `${title}:
 ${message}`);
   process.stderr.write(`[desktop] ${title}: ${message}
 `);
   void shutdown.request(1);
+}
+function recordCrashEvidence(reason, detail) {
+  try {
+    writeCrashEvidence(crashEvidenceDir(), buildCrashEvidence({
+      reason,
+      detail,
+      ...environmentFactsOptions()
+    }));
+  } catch (error) {
+    process.stderr.write(`[desktop] crash evidence failed: ${String(error)}
+`);
+  }
+}
+function environmentFactsOptions() {
+  return {
+    appVersion: import_electron4.app.getVersion(),
+    platform: process.platform,
+    arch: process.arch,
+    packaged: import_electron4.app.isPackaged,
+    env: process.env
+  };
+}
+function runDiagnosticsExport() {
+  void (async () => {
+    const home = resolveDshHome();
+    const path = await exportDiagnosticsArchive(
+      home,
+      collectDiagnosticsFacts(environmentFactsOptions(), (0, import_node_path6.join)(home, "sessions"))
+    );
+    void import_electron4.dialog.showMessageBox({
+      type: "info",
+      title: "DeepSeek Harness",
+      message: "Diagnostics exported.",
+      detail: `Attach this file to your report:
+${path}`,
+      buttons: ["OK"]
+    });
+  })().catch((error) => {
+    import_electron4.dialog.showErrorBox("DeepSeek Harness", `Unable to export diagnostics:
+${String(error)}`);
+  });
 }
 function reportExternalOpenError(error) {
   import_electron4.dialog.showErrorBox("DeepSeek Harness", `Unable to open external link:

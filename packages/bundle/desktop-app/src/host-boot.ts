@@ -8,6 +8,7 @@
 
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 import { FiberState, type Context } from '@deepseek-ai/cordis'
 import type { PatchOptions } from '@deepseek-ai/cordis-plugin-include'
@@ -29,6 +30,9 @@ import type { DesktopRuntime } from './index.ts'
 
 /** Launcher identity: the desktop profile boot's diagnostic prefix. */
 const NAME = 'dsh-desktop'
+
+/** Shipped agent-preset root: beside this package's own config, in both source and deployed layouts. */
+const SHIPPED_PRESET_ROOT = fileURLToPath(new URL('../config/agent-presets/', import.meta.url))
 
 /** The empty root entry list every desktop profile tree patches over. */
 const PROFILE_ROOT_CONFIG = `# dsh-desktop profile root — an empty entry list; the tree is composed as patches.
@@ -81,6 +85,22 @@ export async function bootDesktopHost(options: BootDesktopHostOptions): Promise<
   const runtimeOverlay = hasRuntimeRow
     ? [{ id: 'desktop-runtime', config: { frontendIndex: options.frontendIndexPath } } satisfies PatchOptions]
     : []
+  // The SHIPPED preset root is the part of the roster only this launcher can
+  // resolve: it sits beside this package's own config, in both the source and
+  // the deployed closure layouts. The writable root the roster appends is
+  // `dsh-agent-presets`' own (`includeUserRoot`), so a composition that never
+  // reaches this overlay still finds a person's presets.
+  const presetRow = composeEntries([bundlePatches, profile.patches, homePatches])
+    .find(row => row.id === 'agent-presets')
+  const presetOverlay: PatchOptions[] = presetRow !== undefined
+    ? [{
+      id: 'agent-presets',
+      config: {
+        ...(presetRow.config ?? {}) as Record<string, unknown>,
+        roots: [{ path: SHIPPED_PRESET_ROOT, trust: 'system' }],
+      },
+    } satisfies PatchOptions]
+    : []
   // Recomposition for the live user layers: bundle layers below, the profile's
   // own layer, the home layer, then the runtime overlay, so a user edit can
   // never displace them. Fresh clones per generation keep the include from
@@ -89,12 +109,14 @@ export async function bootDesktopHost(options: BootDesktopHostOptions): Promise<
     ...bundlePatches,
     ...loadOptionalPatches(NAME, profile.patchPath) ?? [],
     ...loadOptionalPatches(NAME, join(home, PROFILE_PATCH_FILENAME)) ?? [],
+    ...presetOverlay,
     ...runtimeOverlay,
   ])
   const ctx = await boot(NAME, join(profile.dir, 'cordis.yml'), structuredClone([
     ...bundlePatches,
     ...profile.patches,
     ...homePatches,
+    ...presetOverlay,
     ...runtimeOverlay,
   ]), (hostCtx) => {
     // Before any config-tree entry mounts, so plugins resolve all launch-time

@@ -127,8 +127,10 @@ async function bootPrimaryInstance(shutdown: DesktopShutdown): Promise<void> {
   )
 
   // Host boot lives in the packaged closure; development resolves the workspace build.
+  // The deploy lands the dsh-desktop-app package at the resources/host root, so the
+  // packaged host boot is resources/host/lib/host-boot.js, not a node_modules path.
   const hostBootPath = app.isPackaged
-    ? join(process.resourcesPath, 'host', 'node_modules', '@deepseek-ai', 'dsh-desktop-app', 'lib', 'host-boot.js')
+    ? join(process.resourcesPath, 'host', 'lib', 'host-boot.js')
     : join(app.getAppPath(), 'node_modules', '@deepseek-ai', 'dsh-desktop-app', 'lib', 'host-boot.js')
   const { bootDesktopHost } = await import(pathToFileURL(hostBootPath).href) as typeof import('@deepseek-ai/dsh-desktop-app/host-boot')
 

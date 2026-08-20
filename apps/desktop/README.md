@@ -8,7 +8,7 @@ The shell is a three-layer Electron app: the **main process** boots the packaged
 
 ## Native lifecycle
 
-Closing the window hides it to the native tray; the Host and its current work continue running. **Show DeepSeek Harness**, a tray double-click, or a second application launch restores the same single window. Only the tray's **Quit** command or an operating-system quit request disposes the Host and exits the process. Disposal has a five-second deadline, after which the shell forces a nonzero exit; a repeated quit request escalates immediately. This release's tray contains only **Show DeepSeek Harness** and **Quit**.
+Closing the window hides it to the native tray; the Host and its current work continue running. **Show DeepSeek Harness**, a tray double-click, or a second application launch restores the same single window. The tray's **Export diagnostics…** command creates a diagnostics archive under the Harness home. Only the tray's **Quit** command or an operating-system quit request disposes the Host and exits the process. Disposal has a five-second deadline, after which the shell forces a nonzero exit; a repeated quit request escalates immediately.
 
 ## Development
 
@@ -27,6 +27,8 @@ pnpm run pack:desktop
 ```
 
 This deploys the host closure into `apps/desktop/resources/host`, builds the desktop-mode frontend into `resources/frontend`, bundles the shell, rebuilds `node-pty` against the Electron ABI, and runs electron-builder. Artifacts land in `apps/desktop/dist/` (mac dmg/zip, win nsis/zip), selected by `DSH_DESKTOP_ARCH` when set.
+
+Every pack ends with the packaged-runtime verification (`pnpm run verify:packed`, [scripts/verify-packaged-runtime.ts](../../scripts/verify-packaged-runtime.ts)): it boots the deployed host closure under plain Node with a temp Harness home and creates one empty session through the IPC-wire client, asserts the packaged bundle carries `THIRD_PARTY_NOTICES.md`, and launches the packaged executable to confirm the renderer reaches readiness (`lastGood` startup state). On headless Linux or with `DSH_VERIFY_SKIP_LIVE=1` the live-launch check is skipped; the other checks still run.
 
 ### Unsigned artifacts
 

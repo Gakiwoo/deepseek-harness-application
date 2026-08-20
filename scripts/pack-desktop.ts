@@ -94,6 +94,11 @@ function main(): void {
   cpSync(join(repo, 'apps', 'web', 'dist'), join(resources, 'frontend'), { recursive: true })
   cpSync(join(appDir, 'src', 'splash.html'), join(resources, 'splash.html'))
 
+  // The generated third-party notices ship inside the packaged bundle, so a
+  // user can read the disclosure without the repo (verify-packaged-runtime
+  // asserts their presence in the produced artifact).
+  cpSync(join(repo, 'THIRD_PARTY_NOTICES.md'), join(resources, 'THIRD_PARTY_NOTICES.md'))
+
   // 3. shell bundles.
   runPnpm(['--filter', '@deepseek-ai/dsh-desktop', 'run', 'build:shell'])
 

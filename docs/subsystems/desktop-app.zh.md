@@ -28,6 +28,8 @@ Electron 主进程拥有一个窗口、一个托盘和一个 IPC 泵；Electron 
 
 托盘 "Export diagnostics…" 命令创建 `$DSH_HOME/exports/diagnostics-<timestamp>.tar.gz`——diagnostics 目录、会话日志与一份环境事实文件，用平台 `tar` 打包——并在对话框中报告归档路径（[`apps/desktop/src/diagnostics-export.ts`](../../apps/desktop/src/diagnostics-export.ts)）。
 
+每次打包都以打包运行时验证收尾（[`scripts/verify-packaged-runtime.ts`](../../scripts/verify-packaged-runtime.ts)）：在纯 Node 下用临时 Harness home 启动部署后的宿主闭包，并通过 IPC 线客户端创建一个空会话；断言打包产物携带 `THIRD_PARTY_NOTICES.md`；启动打包后的可执行文件，确认渲染进程达到就绪（`lastGood` 启动状态；无头 Linux 或设置 `DSH_VERIFY_SKIP_LIVE=1` 时跳过）。打包后的宿主启动解析部署闭包的根目录 `resources/host/lib/host-boot.js`；deploy 把 desktop-app 包放在 host 根目录，而不是 `node_modules` 下。
+
 ## 服务
 
 `desktopRuntime`（定义于 [`packages/bundle/desktop-app/src/index.ts`](../../packages/bundle/desktop-app/src/index.ts)）暴露上述四个读取面；签名见生成的[服务目录](#ctxdesktopruntime--desktopruntime)。胶水还注册了 `app:desktop-surface` prompt section，把新建的会话引导到桌面窗口（没有 URL、端口或浏览器标签页，没有热重载，经常规宿主工具即可使用原生对话框）。
