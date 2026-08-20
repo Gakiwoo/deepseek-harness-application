@@ -23,7 +23,13 @@ import {
 } from './crash-evidence.ts'
 import { collectDiagnosticsFacts, exportDiagnosticsArchive } from './diagnostics-export.ts'
 import { recoverShellEnvironment } from './shell-environment.ts'
-import { beginStartup, commitStartup } from './startup-state.ts'
+import { beginStartup, commitStartup, readStartupState } from './startup-state.ts'
+import {
+  clearPendingProfile,
+  listDesktopProfiles,
+  resolveBootProfile,
+  writePendingProfile,
+} from './profile-switch.ts'
 import { createDesktopTray, electronTrayNative, type DesktopTrayHandle } from './tray.ts'
 import {
   createDesktopUpdater,
@@ -108,8 +114,13 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 async function bootPrimaryInstance(shutdown: DesktopShutdown): Promise<void> {
-  const stateFile = join(app.getPath('userData'), 'startup-state.json')
-  const startup = beginStartup(stateFile, randomUUID())
+  const userDataDir = app.getPath('userData')
+  const stateFile = join(userDataDir, 'startup-state.json')
+  // The pending-switch marker plus the startup state decide the boot profile;
+  // a stale pending launch record from a switch that never reached readiness
+  // reverts to the profile the app ran as before the switch.
+  const boot = resolveBootProfile(userDataDir, readStartupState(stateFile))
+  const startup = beginStartup(stateFile, randomUUID(), undefined, boot.profile)
 
   // Finder-launched packaged apps inherit a minimal PATH; recover the login
   // shell environment before anything spawns tool processes. Dev launches
@@ -132,10 +143,14 @@ async function bootPrimaryInstance(shutdown: DesktopShutdown): Promise<void> {
   state.tray = createDesktopTray(
     electronTrayNative,
     process.platform,
-    () => { state.window?.show() },
-    runDiagnosticsExport,
-    () => { void runUpdateCheck(shutdown) },
-    (code) => { void shutdown.request(code) },
+    {
+      show: () => { state.window?.show() },
+      exportDiagnostics: runDiagnosticsExport,
+      checkForUpdates: () => { void runUpdateCheck(shutdown) },
+      switchProfile: (name) => { requestProfileSwitch(name, boot.profile, shutdown) },
+      requestQuit: (code) => { void shutdown.request(code) },
+      profiles: listDesktopProfiles(resolveDshHome(), boot.profile),
+    },
   )
 
   // Update checks run on every install; dev launches opt in through the
@@ -162,6 +177,7 @@ async function bootPrimaryInstance(shutdown: DesktopShutdown): Promise<void> {
   try {
     host = await bootDesktopHost({
       frontendIndexPath: join(resourcesDir, 'frontend', 'index.html'),
+      profile: boot.profile,
       requestExit: (code) => { void shutdown.request(code) },
     })
   } catch (error) {
@@ -178,7 +194,11 @@ async function bootPrimaryInstance(shutdown: DesktopShutdown): Promise<void> {
   )
   await window.window.loadURL('dsh://app/')
   commitStartup(stateFile)
+  // The booted profile reached readiness: consume the switch marker so a
+  // future crash no longer reverts to the profile this launch came from.
+  clearPendingProfile(userDataDir)
   if (startup.recovered) {
+    const reverted = boot.reverted
     process.stderr.write(`[desktop] previous launch ${startup.previousAttempt?.launchId ?? 'unknown'} did not complete\n`)
     if (app.isPackaged) {
       // The window may already be gone when the message box resolves; nothing
@@ -186,12 +206,28 @@ async function bootPrimaryInstance(shutdown: DesktopShutdown): Promise<void> {
       void dialog.showMessageBox(window.window, {
         type: 'warning',
         title: 'DeepSeek Harness',
-        message: 'The previous launch did not complete.',
-        detail: 'The previous launch exited before the window was ready, usually because it crashed or was force-quit. If this keeps happening, report it with the log files from the Harness home directory.',
+        message: reverted !== undefined
+          ? `Switching to the "${reverted.name}" profile did not complete.`
+          : 'The previous launch did not complete.',
+        detail: reverted !== undefined
+          ? `The app reverted to the "${boot.profile}" profile, the last one that started successfully. If this keeps happening, report it with the log files from the Harness home directory.`
+          : 'The previous launch exited before the window was ready, usually because it crashed or was force-quit. If this keeps happening, report it with the log files from the Harness home directory.',
         buttons: ['OK'],
       }).catch(() => {})
     }
   }
+}
+
+/**
+ * Request a profile switch: persist the pending marker, relaunch, and quit.
+ * @param name - the profile to boot on the next launch.
+ * @param from - the profile the app runs as now, the revert target.
+ * @param shutdown - the desktop shutdown controller used to quit and relaunch.
+ */
+function requestProfileSwitch(name: string, from: string, shutdown: DesktopShutdown): void {
+  writePendingProfile(app.getPath('userData'), name, from)
+  app.relaunch()
+  void shutdown.request(0)
 }
 
 function reportFailure(title: string, error: unknown, shutdown: DesktopShutdown): void {

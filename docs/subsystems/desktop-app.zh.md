@@ -22,7 +22,7 @@ Electron 主进程拥有一个窗口、一个托盘和一个 IPC 泵；Electron 
 
 托盘退出、操作系统退出、`SIGINT`、`SIGTERM`、Host 退出请求以及壳的致命故障都会进入同一个关闭控制器。它依次移除 IPC 泵、dispose Host，然后销毁原生资源。第一个请求最多有五秒完成有序资源释放；资源释放拒绝或超时会把干净退出请求改为退出码 `1`，重复请求则立即退出。
 
-打包后的 POSIX 启动会在 boot 之前恢复登录 shell 环境：它以非交互方式运行用户的登录 shell 打印 `export -p`，`PATH` 取用其结果，白名单内的 locale/工具链/包管理器名称仅在启动环境缺失时导入，超时或失败则保留继承的环境（[`apps/desktop/src/shell-environment.ts`](../../apps/desktop/src/shell-environment.ts)）。每次启动都会在 Electron user data 下记录一个 pending 标记，只有渲染进程加载 `dsh://app/` 后才提升为 lastGood；残留的 pending 会让下次启动报告上次启动未完成（[`apps/desktop/src/startup-state.ts`](../../apps/desktop/src/startup-state.ts)）。
+打包后的 POSIX 启动会在 boot 之前恢复登录 shell 环境：它以非交互方式运行用户的登录 shell 打印 `export -p`，`PATH` 取用其结果，白名单内的 locale/工具链/包管理器名称仅在启动环境缺失时导入，超时或失败则保留继承的环境（[`apps/desktop/src/shell-environment.ts`](../../apps/desktop/src/shell-environment.ts)）。每次启动都会在 Electron user data 下记录一个 pending 标记，只有渲染进程加载 `dsh://app/` 后才提升为 lastGood；残留的 pending 会让下次启动报告上次启动未完成（[`apps/desktop/src/startup-state.ts`](../../apps/desktop/src/startup-state.ts)）。pending 记录还会带上所引导的 profile 名称：托盘的 Profile 子菜单列出 `$DSH_HOME/profiles/` 下可引导桌面的 profile（bundle 携带 `@deepseek-ai/dsh-desktop-app`），选择其中一项会写入 pending 标记、重启并引导该 profile。若某次切换的启动未能达到就绪，下一次启动会回退到发起切换时应用所运行的 profile，并报告回退；否则 lastGood 记录会记住最近一次成功启动的 profile（[`apps/desktop/src/profile-switch.ts`](../../apps/desktop/src/profile-switch.ts)）。
 
 主进程失败与非干净退出的渲染进程崩溃会在失败路径运行前，向 `$DSH_HOME/diagnostics` 写入带时间戳的 JSON 快照——失败原因与详情、运行时版本，以及 PATH 和解析后的 home 路径（[`apps/desktop/src/crash-evidence.ts`](../../apps/desktop/src/crash-evidence.ts)）；写入失败绝不会变成第二次失败。
 

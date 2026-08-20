@@ -1,6 +1,7 @@
 /** Minimal native tray with injected Electron operations for deterministic tests. */
 
 import { Menu, Tray, nativeImage } from 'electron'
+import type { DesktopProfile } from './profile-switch.ts'
 
 const TEMPLATE_TRAY_ICON = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAAAsTAAALEwEAmpwYAAACWUlEQVRYhe2WTYiOURTHf2aYD2SkqclqfCxI+YoaseC1GGJnDAslUxZY2JBioaRZsDArkZ1pWOhNpiZEahYijK9iZjOrSTGmhhjSGEa3/q+O233mPo/Xu/L+69TznHu+7rn3nHugjDJKg3lA7l8anAvU6nsOsA/oBgaBx8AsT/4I0F+Mw2XABRn5AUyKRoBv5t9RU0D/utYuAw0JPppCWaoCOoCfnpOpaG3A+C2z/hFYJ/4CYAtwAvgCnLZKlUBPBscFGga2egGc92QeAFcDuq1W6cxfOC/Qd6DN2NqUQucDMLOgsAQYLyKASR3bYRPElYj8Xrv7ziKd2yAOmPvUFZBxd2KPdT4dGNXiENAHvCsyiFOyu9PwnwAtwGz/xq6WQK/HXwgcAl5FHE4AD1Wilv9amyn8u4sZxDYJ3E8SAHYDbxMC6FeZuQZ1Y4pAjycZ3yUBl/ZYe+0NGP6sO7QDqAFeJATgl+pv5IzQ4kgQ1Qm7/ATsl8yaQCMbV4aCWGQEjxKH6/vPAkE8BeYrU2+8tXsxo0PmPCtSBNGocgpVwESA/0fZhXDJCLs7kQZtKcvSvZgzYsaWm3Nz6atLGUR3ip7gHp9UyBvFm2okfpAngXrDqw+ct6VzZECD1wHzZghxWCX+e2C74W/Q0+o7vxPYRBQ54Ksx8hxYadYfmdR2qCxRmv1BxfWMZmBa1iA2A2PeObqx67aeXevkpTppjfSGA5kYUGlmwlKvj6chN7qdVS/JK1t3gXYNO5lRBRxUGcWcu3dkIyVCJbAeOKYh85roogaQFaVyXMb/gV/dRWbOp9K5uAAAAABJRU5ErkJggg=='
 const BLUE_TRAY_ICON = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAAAsTAAALEwEAmpwYAAADSUlEQVRYhe1WXYhMcRS/rG9Cm9q21Fpz/jOasogiHlgPiDcMD2Tdc8aE4oUUDzbJAw88ibwRHiRRQqQ8iKzv8lHaUqKde860Nl/Jx16dOx935s7dmdlln+ypf839z/+c8/ufc37n/C1rSIZkECROPfURlNZ/ZrCp7ePkqYl3Y/U3bMhMNOhsNsRXDEonIHe0bOwaX3zekOwC5FcDdgh2Jm6IT6gRg/zbkLi6AEUMyvf8t7fszPwyfeJL3nni082UbgjzoXplUYon3FGG5Jgh7i1xUmHFUOaVGUe5XjiD3APJzALdj7V1TYskneUGeZ9B+QokB32thFsHJFdrdew7ECdCzorSFPDx0nN8D1DOB3WBOFGEmg/323khNfwTyLHztiIkS6rr8cfG1IdxnkIMJQbIPwYKIGew1xDvLLrQuYrn7cym4pCd+TvnPghA2erXE58tTxn3AMqGgvPF7e4Ig9ydM/DOoDwyKOm/igTKAbULSWdtUb4fAjpr4tudCaWUQZ6TO3SneD+a7GoGlO0G+UUVh78M8n2PoqX7L73L+N/Hw+hoGeKV2UKSu6EHFAzxekPS1UcBvlKaZRsUX+4baGZvqPGIzetydEr3BcDLKfXUa5TKAcjnbA1lVje1vR0DJM/CAASp6gNAaS0YSzmRSiBgx5vRYbcE4k9R4qRnLylzg41MGaYRCk+BnZ7uV6jstqqI9n1D8iTklo9npLhRIwXE7wMAblc0arT6c/m02t3h1UBMw+4mpVMfveBXSJp82oUJkJwq5MrmddUAZHUcuyZaonTOTbkjKxqLbU7PzOdNwzc91T2pFhDeSK7SE3T41GLLMiQX/aKSa9pIgiCBeH809WFKfk9/B/MduP1Rq1ZppnRDoANezD9CPIBJZ3Zunw3yqgIIchbpaA1puTeDl6gqkSwlvxUVz1NjO7Py/wPyA7/Y5JjS0tPzZnzgoUJyBzCzzLLcYf0CEU3KUiD5UjpguMOg3NCxG6ju59pJtQGpnr4NQjrla6Vm/0CkZEZpH6+l2vk3EB/RXqLp02gB8S0gOaSPHau/Ek+4o4Bkm9KomnOdI2DzYmtQJOHWRbY4C4Fkjz4yDckFXYB8Uh8gUUq3DI7jIflf5A8E1QULjH3uGwAAAABJRU5ErkJggg=='
@@ -10,8 +11,17 @@ export interface DesktopTrayMenuItem {
   /** Visible command label. */
   readonly label?: string
 
-  /** Native separator marker. */
-  readonly type?: 'separator'
+  /** Native separator or radio marker. */
+  readonly type?: 'separator' | 'radio'
+
+  /** Whether a radio item marks the active choice. */
+  readonly checked?: boolean
+
+  /** Whether the item can be chosen; non-bootable profiles are listed disabled. */
+  readonly enabled?: boolean
+
+  /** Child entries of a submenu item. */
+  readonly submenu?: readonly DesktopTrayMenuItem[]
 
   /** Invokes the menu command. */
   readonly click?: () => void
@@ -27,6 +37,22 @@ interface DesktopTrayImage {
 
   /** Marks a macOS image for automatic light and dark adaptation. */
   setTemplateImage(template: boolean): void
+}
+
+/** The action sinks and facts the tray menu routes. */
+export interface DesktopTrayOptions {
+  /** Restores the desktop window. */
+  readonly show: () => void
+  /** Starts a diagnostics archive export. */
+  readonly exportDiagnostics: () => void
+  /** Checks the release feed and orchestrates download dialogs. */
+  readonly checkForUpdates: () => void
+  /** Requests a switch to the given profile: pending marker, relaunch, quit. */
+  readonly switchProfile: (name: string) => void
+  /** Starts orderly process shutdown. */
+  readonly requestQuit: (code: number) => void
+  /** The profiles shown in the Profile submenu, current first. */
+  readonly profiles: readonly DesktopProfile[]
 }
 
 /** Native tray operations owned by the desktop shell. */
@@ -69,7 +95,9 @@ export interface DesktopTrayHandle {
 export const electronTrayNative: DesktopTrayNative = {
   nativeImage: { createFromDataURL: dataUrl => nativeImage.createFromDataURL(dataUrl) },
   menu: {
-    buildFromTemplate: template => Menu.buildFromTemplate(template),
+    // Electron requires mutable native constructor options; the injected
+    // face narrows them to the readonly menu items the shell builds.
+    buildFromTemplate: template => Menu.buildFromTemplate(template as Electron.MenuItemConstructorOptions[]),
   },
   createTray: image => new Tray(image as Electron.NativeImage),
 }
@@ -78,20 +106,15 @@ export const electronTrayNative: DesktopTrayNative = {
  * Creates the native tray and restore gesture.
  * @param native Native tray operations.
  * @param platform Current Node.js platform.
- * @param show Restores the desktop window.
- * @param exportDiagnostics Starts a diagnostics archive export.
- * @param checkForUpdates Checks the release feed and orchestrates download dialogs.
- * @param requestQuit Starts orderly process shutdown.
+ * @param options Tray action sinks, profile facts, and quit request.
  * @returns The owned tray handle.
  */
 export function createDesktopTray(
   native: DesktopTrayNative,
   platform: NodeJS.Platform,
-  show: () => void,
-  exportDiagnostics: () => void,
-  checkForUpdates: () => void,
-  requestQuit: (code: number) => void,
+  options: DesktopTrayOptions,
 ): DesktopTrayHandle {
+  const { show, exportDiagnostics, checkForUpdates, requestQuit } = options
   const macOS = platform === 'darwin'
   const source = macOS ? TEMPLATE_TRAY_ICON : BLUE_TRAY_ICON
   const size = macOS ? 18 : 20
@@ -101,6 +124,19 @@ export function createDesktopTray(
 
   const template: DesktopTrayMenuItem[] = [
     { label: 'Show DeepSeek Harness', click: show },
+    { type: 'separator' },
+    {
+      label: 'Profile',
+      submenu: options.profiles.map(profile => ({
+        label: profile.name,
+        type: 'radio',
+        checked: profile.current,
+        // The running profile is always shown; the others must compose the
+        // desktop tree or the switch would fail and revert on the next boot.
+        enabled: profile.current || profile.bootable,
+        click: () => { options.switchProfile(profile.name) },
+      })),
+    },
     { type: 'separator' },
     { label: 'Export diagnostics…', click: exportDiagnostics },
     { label: 'Check for updates…', click: checkForUpdates },

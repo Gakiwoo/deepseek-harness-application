@@ -12,10 +12,12 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 
-/** One launch record: the launch id and the moment the launch began. */
+/** One launch record: the launch id, when it began, and the booted profile. */
 interface StartupRecord {
   launchId: string
   at: number
+  /** The profile this launch booted; absent on records written before profile switching. */
+  profile?: string
 }
 
 /** The persisted startup marker. */
@@ -37,10 +39,15 @@ export interface BeginStartupResult {
  * stale pending (it never committed). The previous state is preserved so a
  * subsequent commit records this launch as last good.
  */
-export function beginStartup(stateFile: string, launchId: string = randomUUID(), at: number = Date.now()): BeginStartupResult {
+export function beginStartup(
+  stateFile: string,
+  launchId: string = randomUUID(),
+  at: number = Date.now(),
+  profile?: string,
+): BeginStartupResult {
   const state = readStartupState(stateFile)
   const recovered = state.pending !== undefined && state.pending.launchId !== launchId
-  writeStartupState(stateFile, { lastGood: state.lastGood, pending: { launchId, at } })
+  writeStartupState(stateFile, { lastGood: state.lastGood, pending: { launchId, at, ...(profile !== undefined ? { profile } : {}) } })
   if (recovered) return { recovered, previousAttempt: state.pending }
   return { recovered }
 }
@@ -82,4 +89,5 @@ function isStartupRecord(value: unknown): value is StartupRecord {
   if (typeof value !== 'object' || value === null) return false
   const record = value as Partial<StartupRecord>
   return typeof record.launchId === 'string' && typeof record.at === 'number'
+    && (record.profile === undefined || typeof record.profile === 'string')
 }

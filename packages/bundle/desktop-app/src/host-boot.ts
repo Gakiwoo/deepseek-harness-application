@@ -43,6 +43,8 @@ const PROFILE_ROOT_CONFIG = `# dsh-desktop profile root — an empty entry list;
 export interface BootDesktopHostOptions {
   /** Harness home (tests inject a temp dir; the shell passes the real one). */
   home?: string
+  /** The profile name to boot (defaults to the shipped desktop profile). */
+  profile?: string
   /** Absolute path of the frontend index.html (surfaced via desktopRuntime). */
   frontendIndexPath: string
   /** Exit request sink wired to the shell's quit path. */
@@ -64,7 +66,7 @@ export interface DesktopHostHandle {
  * compose bundle + user patch layers, mount the tree, and settle. The runtime
  * overlay pins `desktop-runtime`'s frontend index to the shell's resources
  * dir, so the IPC pump and dsh:// protocol resolve the served artifacts.
- * @param options - home, frontend path, exit sink.
+ * @param options - home, profile, frontend path, exit sink.
  * @returns the settled handle.
  */
 export async function bootDesktopHost(options: BootDesktopHostOptions): Promise<DesktopHostHandle> {
@@ -72,7 +74,7 @@ export async function bootDesktopHost(options: BootDesktopHostOptions): Promise<
   const require = createRequire(import.meta.url)
   const installAnchor = require.resolve('@deepseek-ai/dsh-desktop-app/package.json')
   healProfilesModuleFallback(installAnchor, home)
-  const profile = loadProfile(NAME, 'desktop', installAnchor, home)
+  const profile = loadProfile(NAME, options.profile ?? 'desktop', installAnchor, home)
   writeFileSync(join(profile.dir, 'cordis.yml'), PROFILE_ROOT_CONFIG)
   const homePatches = loadOptionalPatches(NAME, join(home, PROFILE_PATCH_FILENAME)) ?? []
   const bundlePatches = profile.layers.flatMap(layer => layer.patches)

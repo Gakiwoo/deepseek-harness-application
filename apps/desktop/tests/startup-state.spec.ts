@@ -77,6 +77,30 @@ describe('startup state', () => {
     expect(readStartupState(stateFile)).toEqual({})
   })
 
+  it('carries the booted profile through begin and commit', () => {
+    const stateFile = tempStateFile()
+    beginStartup(stateFile, 'launch-1', 1000, 'custom')
+    expect(readStartupState(stateFile)).toEqual({
+      pending: { launchId: 'launch-1', at: 1000, profile: 'custom' },
+    })
+    commitStartup(stateFile)
+    expect(readStartupState(stateFile)).toEqual({
+      lastGood: { launchId: 'launch-1', at: 1000, profile: 'custom' },
+    })
+  })
+
+  it('treats a record without a profile as legacy', () => {
+    const stateFile = tempStateFile()
+    writeStartupState(stateFile, { lastGood: { launchId: 'launch-0', at: 0 } })
+    expect(readStartupState(stateFile)).toEqual({ lastGood: { launchId: 'launch-0', at: 0 } })
+  })
+
+  it('drops records with a non-string profile', () => {
+    const stateFile = tempStateFile()
+    writeFileSync(stateFile, JSON.stringify({ pending: { launchId: 'launch-1', at: 1, profile: 7 } }))
+    expect(readStartupState(stateFile)).toEqual({})
+  })
+
   it('writes atomically without leaving the temp file behind', () => {
     const stateFile = tempStateFile()
     beginStartup(stateFile, 'launch-1', 1000)

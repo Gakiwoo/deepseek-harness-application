@@ -10,6 +10,10 @@ DeepSeek Harness 桌面壳（Electron）。它把服务启动、运行管理和�
 
 关闭窗口只会把它隐藏到原生托盘；Host 及其当前工作继续运行。**Show DeepSeek Harness**、双击托盘或再次启动应用都会恢复同一个单例窗口。托盘的 **Export diagnostics…** 命令会在 Harness home 下创建诊断归档，**Check for updates…** 则驱动更新能力。只有托盘的 **Quit** 命令或操作系统退出请求才会 dispose（资源释放）Host 并结束进程。资源释放的期限为五秒，超时后壳会强制以非零状态退出；重复的退出请求会立即升级。
 
+## 配置文件（Profiles）
+
+配置文件（profile）是 `$DSH_HOME/profiles/<name>` 下的插件组合（与 CLI 的 `dsh plugin --profile <name>` 维护的布局一致）；应用始终运行其中一个 profile。托盘的 **Profile** 子菜单列出 Harness home 中找到的 profile，标记当前运行的 profile，并禁用其 bundle 无法组成桌面树的 profile（缺少 `@deepseek-ai/dsh-desktop-app`；CLI 的 `web`/`headless` 模板与裸 `dsh plugin` profile 都无法引导桌面）。选择其他 profile 会写入待应用标记并重启应用；下一次启动将引导所选 profile。若该次启动未能达到就绪（崩溃、强制退出），下一次启动会回退到发起切换时应用所运行的 profile，并报告回退。启动状态会记住最近一次成功启动的 profile，因此崩溃不会让应用反复引导一个无法启动的 profile（[`apps/desktop/src/profile-switch.ts`](../../apps/desktop/src/profile-switch.ts)、[`apps/desktop/src/startup-state.ts`](../../apps/desktop/src/startup-state.ts)）。
+
 ## 更新
 
 托盘的 **Check for updates…** 命令查询本仓库的 GitHub Releases feed，寻找比当前版本更新的最新发布（仅当当前版本是预发布版时才包含预发布版），匹配平台产物（macOS 优先 `mac-<arch>.zip`，Windows 为 `win-x64.exe`），并要求同一发布携带对应的 `<artifact>.sha256` 校验和边车。产物下载到 Electron user data，并做 sha256 校验；macOS zip 随后会被解压并做版本校验（ditto，同时移除隔离属性），然后写入待应用标记。下一次干净退出会消费该标记：macOS 就地替换运行中的 bundle（旧 bundle 移开，交换失败时恢复），Windows 静默启动 NSIS 安装程序。发布缺少匹配产物或校验和边车时，检查对话框会大声失败。

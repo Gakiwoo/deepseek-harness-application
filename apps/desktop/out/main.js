@@ -2023,7 +2023,7 @@ var require_semver2 = __commonJS({
 var import_node_crypto3 = require("node:crypto");
 var import_node_child_process3 = require("node:child_process");
 var import_electron4 = require("electron");
-var import_node_path7 = require("node:path");
+var import_node_path8 = require("node:path");
 var import_node_url = require("node:url");
 
 // ../../packages/util/home-paths/lib/index.js
@@ -2364,10 +2364,10 @@ function unquoteExportValue(raw) {
 // src/startup-state.ts
 var import_node_crypto = require("node:crypto");
 var import_node_fs5 = require("node:fs");
-function beginStartup(stateFile, launchId = (0, import_node_crypto.randomUUID)(), at = Date.now()) {
+function beginStartup(stateFile, launchId = (0, import_node_crypto.randomUUID)(), at = Date.now(), profile) {
   const state2 = readStartupState(stateFile);
   const recovered = state2.pending !== void 0 && state2.pending.launchId !== launchId;
-  writeStartupState(stateFile, { lastGood: state2.lastGood, pending: { launchId, at } });
+  writeStartupState(stateFile, { lastGood: state2.lastGood, pending: { launchId, at, ...profile !== void 0 ? { profile } : {} } });
   if (recovered) return { recovered, previousAttempt: state2.pending };
   return { recovered };
 }
@@ -2397,7 +2397,87 @@ function writeStartupState(stateFile, state2) {
 function isStartupRecord(value) {
   if (typeof value !== "object" || value === null) return false;
   const record = value;
-  return typeof record.launchId === "string" && typeof record.at === "number";
+  return typeof record.launchId === "string" && typeof record.at === "number" && (record.profile === void 0 || typeof record.profile === "string");
+}
+
+// src/profile-switch.ts
+var import_node_fs6 = require("node:fs");
+var import_node_path5 = require("node:path");
+var DESKTOP_APP_BUNDLE = "@deepseek-ai/dsh-desktop-app";
+var PENDING_PROFILE_FILENAME = "pending-profile.json";
+var DEFAULT_DESKTOP_PROFILE = "desktop";
+function listDesktopProfiles(home, currentProfile) {
+  const profilesDir = (0, import_node_path5.join)(home, "profiles");
+  const profiles = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const name of readProfileNames(profilesDir)) {
+    const bundles = readProfileBundles((0, import_node_path5.join)(profilesDir, name));
+    if (bundles === void 0) continue;
+    profiles.push({
+      name,
+      bundles,
+      bootable: bundles.includes(DESKTOP_APP_BUNDLE),
+      current: name === currentProfile
+    });
+    seen.add(name);
+  }
+  if (!seen.has(currentProfile)) {
+    profiles.push({ name: currentProfile, bundles: [], bootable: false, current: true });
+  }
+  return profiles.sort((a, b) => {
+    if (a.current !== b.current) return a.current ? -1 : 1;
+    if (a.bootable !== b.bootable) return a.bootable ? -1 : 1;
+    return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
+  });
+}
+function writePendingProfile(userDataDir, name, from, at = Date.now()) {
+  const file = (0, import_node_path5.join)(userDataDir, PENDING_PROFILE_FILENAME);
+  const tmpFile = `${file}.tmp`;
+  (0, import_node_fs6.writeFileSync)(tmpFile, `${JSON.stringify({ name, from, at }, null, 2)}
+`);
+  (0, import_node_fs6.renameSync)(tmpFile, file);
+}
+function readPendingProfile(userDataDir) {
+  const file = (0, import_node_path5.join)(userDataDir, PENDING_PROFILE_FILENAME);
+  if (!(0, import_node_fs6.existsSync)(file)) return void 0;
+  try {
+    const parsed = JSON.parse((0, import_node_fs6.readFileSync)(file, "utf8"));
+    if (typeof parsed.name !== "string" || typeof parsed.from !== "string" || typeof parsed.at !== "number") {
+      return void 0;
+    }
+    return { name: parsed.name, from: parsed.from, at: parsed.at };
+  } catch {
+    return void 0;
+  }
+}
+function clearPendingProfile(userDataDir) {
+  (0, import_node_fs6.rmSync)((0, import_node_path5.join)(userDataDir, PENDING_PROFILE_FILENAME), { force: true });
+}
+function resolveBootProfile(userDataDir, state2) {
+  const pending = readPendingProfile(userDataDir);
+  if (pending !== void 0 && state2.pending !== void 0) {
+    clearPendingProfile(userDataDir);
+    return { profile: pending.from, reverted: pending };
+  }
+  if (pending !== void 0) return { profile: pending.name };
+  return { profile: state2.lastGood?.profile ?? DEFAULT_DESKTOP_PROFILE };
+}
+function readProfileNames(profilesDir) {
+  try {
+    return (0, import_node_fs6.readdirSync)(profilesDir).filter((name) => name !== "node_modules");
+  } catch {
+    return [];
+  }
+}
+function readProfileBundles(profileDir) {
+  try {
+    const manifest = JSON.parse((0, import_node_fs6.readFileSync)((0, import_node_path5.join)(profileDir, "package.json"), "utf8"));
+    const bundles = manifest.dsh?.profile?.bundles;
+    if (!Array.isArray(bundles) || bundles.some((bundle) => typeof bundle !== "string")) return void 0;
+    return bundles;
+  } catch {
+    return void 0;
+  }
 }
 
 // src/tray.ts
@@ -2407,11 +2487,14 @@ var BLUE_TRAY_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYA
 var electronTrayNative = {
   nativeImage: { createFromDataURL: (dataUrl) => import_electron2.nativeImage.createFromDataURL(dataUrl) },
   menu: {
+    // Electron requires mutable native constructor options; the injected
+    // face narrows them to the readonly menu items the shell builds.
     buildFromTemplate: (template) => import_electron2.Menu.buildFromTemplate(template)
   },
   createTray: (image) => new import_electron2.Tray(image)
 };
-function createDesktopTray(native, platform, show, exportDiagnostics, checkForUpdates, requestQuit) {
+function createDesktopTray(native, platform, options) {
+  const { show, exportDiagnostics, checkForUpdates, requestQuit } = options;
   const macOS = platform === "darwin";
   const source = macOS ? TEMPLATE_TRAY_ICON : BLUE_TRAY_ICON;
   const size = macOS ? 18 : 20;
@@ -2420,6 +2503,21 @@ function createDesktopTray(native, platform, show, exportDiagnostics, checkForUp
   if (image.isEmpty()) throw new Error("desktop tray icon is empty");
   const template = [
     { label: "Show DeepSeek Harness", click: show },
+    { type: "separator" },
+    {
+      label: "Profile",
+      submenu: options.profiles.map((profile) => ({
+        label: profile.name,
+        type: "radio",
+        checked: profile.current,
+        // The running profile is always shown; the others must compose the
+        // desktop tree or the switch would fail and revert on the next boot.
+        enabled: profile.current || profile.bootable,
+        click: () => {
+          options.switchProfile(profile.name);
+        }
+      }))
+    },
     { type: "separator" },
     { label: "Export diagnostics\u2026", click: exportDiagnostics },
     { label: "Check for updates\u2026", click: checkForUpdates },
@@ -2445,8 +2543,8 @@ function createDesktopTray(native, platform, show, exportDiagnostics, checkForUp
 
 // src/updates.ts
 var import_node_crypto2 = require("node:crypto");
-var import_node_fs6 = require("node:fs");
-var import_node_path5 = require("node:path");
+var import_node_fs7 = require("node:fs");
+var import_node_path6 = require("node:path");
 var import_semver = __toESM(require_semver2());
 var UPDATE_RELEASE_REPOSITORY = "Gakiwoo/deepseek-harness-application";
 var UPDATE_CHECKSUM_SUFFIX = ".sha256";
@@ -2561,9 +2659,9 @@ function selectUpdate(releases, platform, arch, currentVersion) {
   };
 }
 async function downloadUpdate(native, info, directory, onProgress) {
-  (0, import_node_fs6.mkdirSync)(directory, { recursive: true });
-  const targetPath = (0, import_node_path5.join)(directory, info.artifact.name);
-  const partPath = (0, import_node_path5.join)(directory, `${info.artifact.name}.part`);
+  (0, import_node_fs7.mkdirSync)(directory, { recursive: true });
+  const targetPath = (0, import_node_path6.join)(directory, info.artifact.name);
+  const partPath = (0, import_node_path6.join)(directory, `${info.artifact.name}.part`);
   const checksumResponse = await native.fetch(info.artifact.checksumUrl, {
     headers: { "User-Agent": "DeepSeek-Harness-Desktop" }
   });
@@ -2583,7 +2681,7 @@ async function downloadUpdate(native, info, directory, onProgress) {
   const hash = (0, import_node_crypto2.createHash)("sha256");
   const total = info.artifact.size;
   let received = 0;
-  const writeStream = (0, import_node_fs6.createWriteStream)(partPath);
+  const writeStream = (0, import_node_fs7.createWriteStream)(partPath);
   try {
     for await (const chunk of response.body) {
       const bytes = chunk;
@@ -2599,19 +2697,19 @@ async function downloadUpdate(native, info, directory, onProgress) {
       writeStream.on("error", reject);
     });
   } catch (error) {
-    (0, import_node_fs6.rmSync)(partPath, { force: true });
+    (0, import_node_fs7.rmSync)(partPath, { force: true });
     if (error instanceof DesktopUpdateError) throw error;
     throw new DesktopUpdateError("download", `artifact download for ${info.artifact.name} failed: ${String(error)}`);
   }
   const digest = hash.digest("hex");
   if (digest !== expected) {
-    (0, import_node_fs6.rmSync)(partPath, { force: true });
+    (0, import_node_fs7.rmSync)(partPath, { force: true });
     throw new DesktopUpdateError(
       "checksum",
       `artifact ${info.artifact.name} sha256 ${digest} does not match the release ${expected}`
     );
   }
-  (0, import_node_fs6.renameSync)(partPath, targetPath);
+  (0, import_node_fs7.renameSync)(partPath, targetPath);
   return targetPath;
 }
 function planApply(info, platform) {
@@ -2624,13 +2722,13 @@ function planApply(info, platform) {
   return "unsupported";
 }
 function createDesktopUpdater(native, options) {
-  const updatesDir = (0, import_node_path5.join)(options.userDataDir, "updates");
-  const markerPath = (0, import_node_path5.join)(updatesDir, "pending.json");
+  const updatesDir = (0, import_node_path6.join)(options.userDataDir, "updates");
+  const markerPath = (0, import_node_path6.join)(updatesDir, "pending.json");
   const repository = native.env.DSH_DESKTOP_UPDATE_REPOSITORY ?? UPDATE_RELEASE_REPOSITORY;
   function readMarker() {
-    if (!(0, import_node_fs6.existsSync)(markerPath)) return void 0;
+    if (!(0, import_node_fs7.existsSync)(markerPath)) return void 0;
     try {
-      const marker = JSON.parse((0, import_node_fs6.readFileSync)(markerPath, "utf8"));
+      const marker = JSON.parse((0, import_node_fs7.readFileSync)(markerPath, "utf8"));
       return {
         version: marker.version,
         releaseName: marker.releaseName,
@@ -2653,16 +2751,16 @@ function createDesktopUpdater(native, options) {
       return downloadUpdate(native, info, updatesDir, onProgress);
     },
     async stage(info, artifactPath) {
-      (0, import_node_fs6.mkdirSync)(updatesDir, { recursive: true });
+      (0, import_node_fs7.mkdirSync)(updatesDir, { recursive: true });
       const action = planApply(info, options.platform);
       if (action === "unsupported") {
         throw new DesktopUpdateError("apply", `no clean-exit apply exists for ${info.artifact.kind} on ${options.platform}`);
       }
       let stagedAppPath;
       if (action === "swap") {
-        const extractDir = (0, import_node_path5.join)(updatesDir, `extracted-${info.version}`);
-        (0, import_node_fs6.rmSync)(extractDir, { recursive: true, force: true });
-        (0, import_node_fs6.mkdirSync)(extractDir, { recursive: true });
+        const extractDir = (0, import_node_path6.join)(updatesDir, `extracted-${info.version}`);
+        (0, import_node_fs7.rmSync)(extractDir, { recursive: true, force: true });
+        (0, import_node_fs7.mkdirSync)(extractDir, { recursive: true });
         const exitCode = await new Promise((resolve2) => {
           const child = native.spawn("ditto", ["-x", "-k", artifactPath, extractDir]);
           child.on("exit", (code) => {
@@ -2676,7 +2774,7 @@ function createDesktopUpdater(native, options) {
         if (appName === void 0) {
           throw new DesktopUpdateError("stage", `extraction of ${info.artifact.name} produced no .app bundle`);
         }
-        const stagedBundlePath = (0, import_node_path5.join)(extractDir, appName);
+        const stagedBundlePath = (0, import_node_path6.join)(extractDir, appName);
         const bundleVersion = native.plistBundleVersion(stagedBundlePath);
         if (bundleVersion !== info.version) {
           throw new DesktopUpdateError(
@@ -2695,7 +2793,7 @@ function createDesktopUpdater(native, options) {
         }
         stagedAppPath = stagedBundlePath;
       }
-      (0, import_node_fs6.writeFileSync)(markerPath, JSON.stringify({
+      (0, import_node_fs7.writeFileSync)(markerPath, JSON.stringify({
         version: info.version,
         releaseName: info.releaseName,
         publishedAt: info.publishedAt,
@@ -2713,11 +2811,11 @@ function createDesktopUpdater(native, options) {
       }
       const action = planApply(marker, options.platform);
       if (action === "silent-install") {
-        native.spawn((0, import_node_path5.join)(updatesDir, marker.artifact.name), ["/S"], {
+        native.spawn((0, import_node_path6.join)(updatesDir, marker.artifact.name), ["/S"], {
           detached: true,
           stdio: "ignore"
         }).unref();
-        (0, import_node_fs6.rmSync)(markerPath, { force: true });
+        (0, import_node_fs7.rmSync)(markerPath, { force: true });
         return;
       }
       if (action === "swap") {
@@ -2729,54 +2827,54 @@ function createDesktopUpdater(native, options) {
     cancelPending() {
       const marker = readMarker();
       if (marker !== void 0 && marker.artifact.kind === "zip") {
-        (0, import_node_fs6.rmSync)((0, import_node_path5.join)(updatesDir, `extracted-${marker.version}`), { recursive: true, force: true });
+        (0, import_node_fs7.rmSync)((0, import_node_path6.join)(updatesDir, `extracted-${marker.version}`), { recursive: true, force: true });
       }
-      (0, import_node_fs6.rmSync)(markerPath, { force: true });
+      (0, import_node_fs7.rmSync)(markerPath, { force: true });
     }
   };
 }
 function readdirApps(directory) {
-  return (0, import_node_fs6.readdirSync)(directory).find((entry) => entry.endsWith(".app"));
+  return (0, import_node_fs7.readdirSync)(directory).find((entry) => entry.endsWith(".app"));
 }
 async function applySwap(marker, updatesDir, markerPath, currentAppPath, native) {
   if (marker.artifact.kind !== "zip") {
     throw new DesktopUpdateError("apply", `swap requires a zip artifact, got ${marker.artifact.kind}`);
   }
   const stagedAppPath = markerStagedAppPath(marker, updatesDir);
-  const destDir = (0, import_node_path5.dirname)(currentAppPath);
-  const destName = (0, import_node_path5.basename)(currentAppPath);
-  const stagedCopy = (0, import_node_path5.join)(destDir, `.harness-staged-${marker.version}`);
-  const oldPath = (0, import_node_path5.join)(destDir, `${destName}.old`);
+  const destDir = (0, import_node_path6.dirname)(currentAppPath);
+  const destName = (0, import_node_path6.basename)(currentAppPath);
+  const stagedCopy = (0, import_node_path6.join)(destDir, `.harness-staged-${marker.version}`);
+  const oldPath = (0, import_node_path6.join)(destDir, `${destName}.old`);
   await copyTree(native, stagedAppPath, stagedCopy);
   try {
-    (0, import_node_fs6.rmSync)(oldPath, { recursive: true, force: true });
-    (0, import_node_fs6.renameSync)(currentAppPath, oldPath);
-    (0, import_node_fs6.renameSync)(stagedCopy, currentAppPath);
+    (0, import_node_fs7.rmSync)(oldPath, { recursive: true, force: true });
+    (0, import_node_fs7.renameSync)(currentAppPath, oldPath);
+    (0, import_node_fs7.renameSync)(stagedCopy, currentAppPath);
   } catch (error) {
     try {
-      (0, import_node_fs6.renameSync)(oldPath, currentAppPath);
+      (0, import_node_fs7.renameSync)(oldPath, currentAppPath);
     } catch {
     }
     try {
-      (0, import_node_fs6.rmSync)(stagedCopy, { recursive: true, force: true });
+      (0, import_node_fs7.rmSync)(stagedCopy, { recursive: true, force: true });
     } catch {
     }
     throw new DesktopUpdateError("apply", `bundle swap failed: ${String(error)}`);
   }
-  (0, import_node_fs6.rmSync)(oldPath, { recursive: true, force: true });
-  (0, import_node_fs6.rmSync)((0, import_node_path5.join)(updatesDir, `extracted-${marker.version}`), { recursive: true, force: true });
-  (0, import_node_fs6.rmSync)(markerPath, { force: true });
+  (0, import_node_fs7.rmSync)(oldPath, { recursive: true, force: true });
+  (0, import_node_fs7.rmSync)((0, import_node_path6.join)(updatesDir, `extracted-${marker.version}`), { recursive: true, force: true });
+  (0, import_node_fs7.rmSync)(markerPath, { force: true });
 }
 function markerStagedAppPath(marker, updatesDir) {
   if (marker.artifact.kind !== "zip") {
     throw new DesktopUpdateError("apply", `swap requires a zip artifact, got ${marker.artifact.kind}`);
   }
-  const extractDir = (0, import_node_path5.join)(updatesDir, `extracted-${marker.version}`);
+  const extractDir = (0, import_node_path6.join)(updatesDir, `extracted-${marker.version}`);
   const appName = readdirApps(extractDir);
   if (appName === void 0) {
     throw new DesktopUpdateError("apply", `staged extraction ${extractDir} has no .app bundle`);
   }
-  return (0, import_node_path5.join)(extractDir, appName);
+  return (0, import_node_path6.join)(extractDir, appName);
 }
 async function copyTree(native, source, destination) {
   const exitCode = await new Promise((resolve2) => {
@@ -2792,7 +2890,7 @@ async function copyTree(native, source, destination) {
 
 // src/window.ts
 var import_electron3 = require("electron");
-var import_node_path6 = require("node:path");
+var import_node_path7 = require("node:path");
 var EXTERNAL_PROTOCOLS = /* @__PURE__ */ new Set(["http:", "https:", "mailto:"]);
 function showDesktopWindow(window) {
   if (window.isDestroyed()) return;
@@ -2833,7 +2931,7 @@ function createMainWindow(resourcesDir, isQuitting, reportExternalOpenError2) {
     backgroundColor: "#1e1e1e",
     title: "DeepSeek Harness",
     webPreferences: {
-      preload: (0, import_node_path6.join)(__dirname, "preload.cjs"),
+      preload: (0, import_node_path7.join)(__dirname, "preload.cjs"),
       sandbox: true,
       contextIsolation: true,
       nodeIntegration: false
@@ -2851,7 +2949,7 @@ function createMainWindow(resourcesDir, isQuitting, reportExternalOpenError2) {
   const onRedirect = (event) => {
     if (event.isMainFrame && !isDesktopNavigation(event.url)) event.preventDefault();
   };
-  void window.loadFile((0, import_node_path6.join)(resourcesDir, "splash.html"));
+  void window.loadFile((0, import_node_path7.join)(resourcesDir, "splash.html"));
   window.once("ready-to-show", onReady);
   window.on("close", onClose);
   window.webContents.on("will-frame-navigate", onFrameNavigate);
@@ -3025,12 +3123,14 @@ if (!import_electron4.app.requestSingleInstanceLock()) {
   }
 }
 async function bootPrimaryInstance(shutdown) {
-  const stateFile = (0, import_node_path7.join)(import_electron4.app.getPath("userData"), "startup-state.json");
-  const startup = beginStartup(stateFile, (0, import_node_crypto3.randomUUID)());
+  const userDataDir = import_electron4.app.getPath("userData");
+  const stateFile = (0, import_node_path8.join)(userDataDir, "startup-state.json");
+  const boot = resolveBootProfile(userDataDir, readStartupState(stateFile));
+  const startup = beginStartup(stateFile, (0, import_node_crypto3.randomUUID)(), void 0, boot.profile);
   await recoverShellEnvironment({
     enabled: import_electron4.app.isPackaged || process.env.DSH_DESKTOP_SHELL_ENV === "1"
   });
-  const resourcesDir = import_electron4.app.isPackaged ? process.resourcesPath : (0, import_node_path7.join)(import_electron4.app.getAppPath(), "resources");
+  const resourcesDir = import_electron4.app.isPackaged ? process.resourcesPath : (0, import_node_path8.join)(import_electron4.app.getAppPath(), "resources");
   const window = createMainWindow(
     resourcesDir,
     () => shutdown.isPending(),
@@ -3044,15 +3144,21 @@ async function bootPrimaryInstance(shutdown) {
   state.tray = createDesktopTray(
     electronTrayNative,
     process.platform,
-    () => {
-      state.window?.show();
-    },
-    runDiagnosticsExport,
-    () => {
-      void runUpdateCheck(shutdown);
-    },
-    (code) => {
-      void shutdown.request(code);
+    {
+      show: () => {
+        state.window?.show();
+      },
+      exportDiagnostics: runDiagnosticsExport,
+      checkForUpdates: () => {
+        void runUpdateCheck(shutdown);
+      },
+      switchProfile: (name) => {
+        requestProfileSwitch(name, boot.profile, shutdown);
+      },
+      requestQuit: (code) => {
+        void shutdown.request(code);
+      },
+      profiles: listDesktopProfiles(resolveDshHome(), boot.profile)
     }
   );
   state.updater = createDesktopUpdater(updateNative(), {
@@ -3060,15 +3166,16 @@ async function bootPrimaryInstance(shutdown) {
     platform: process.platform,
     arch: process.arch,
     currentVersion: import_electron4.app.getVersion(),
-    currentAppPath: (0, import_node_path7.join)(import_electron4.app.getPath("exe"), "..", "..", ".."),
+    currentAppPath: (0, import_node_path8.join)(import_electron4.app.getPath("exe"), "..", "..", ".."),
     userDataDir: import_electron4.app.getPath("userData")
   });
-  const hostBootPath = import_electron4.app.isPackaged ? (0, import_node_path7.join)(process.resourcesPath, "host", "lib", "host-boot.js") : (0, import_node_path7.join)(import_electron4.app.getAppPath(), "node_modules", "@deepseek-ai", "dsh-desktop-app", "lib", "host-boot.js");
+  const hostBootPath = import_electron4.app.isPackaged ? (0, import_node_path8.join)(process.resourcesPath, "host", "lib", "host-boot.js") : (0, import_node_path8.join)(import_electron4.app.getAppPath(), "node_modules", "@deepseek-ai", "dsh-desktop-app", "lib", "host-boot.js");
   const { bootDesktopHost } = await import((0, import_node_url.pathToFileURL)(hostBootPath).href);
   let host;
   try {
     host = await bootDesktopHost({
-      frontendIndexPath: (0, import_node_path7.join)(resourcesDir, "frontend", "index.html"),
+      frontendIndexPath: (0, import_node_path8.join)(resourcesDir, "frontend", "index.html"),
+      profile: boot.profile,
       requestExit: (code) => {
         void shutdown.request(code);
       }
@@ -3086,20 +3193,27 @@ async function bootPrimaryInstance(shutdown) {
   );
   await window.window.loadURL("dsh://app/");
   commitStartup(stateFile);
+  clearPendingProfile(userDataDir);
   if (startup.recovered) {
+    const reverted = boot.reverted;
     process.stderr.write(`[desktop] previous launch ${startup.previousAttempt?.launchId ?? "unknown"} did not complete
 `);
     if (import_electron4.app.isPackaged) {
       void import_electron4.dialog.showMessageBox(window.window, {
         type: "warning",
         title: "DeepSeek Harness",
-        message: "The previous launch did not complete.",
-        detail: "The previous launch exited before the window was ready, usually because it crashed or was force-quit. If this keeps happening, report it with the log files from the Harness home directory.",
+        message: reverted !== void 0 ? `Switching to the "${reverted.name}" profile did not complete.` : "The previous launch did not complete.",
+        detail: reverted !== void 0 ? `The app reverted to the "${boot.profile}" profile, the last one that started successfully. If this keeps happening, report it with the log files from the Harness home directory.` : "The previous launch exited before the window was ready, usually because it crashed or was force-quit. If this keeps happening, report it with the log files from the Harness home directory.",
         buttons: ["OK"]
       }).catch(() => {
       });
     }
   }
+}
+function requestProfileSwitch(name, from, shutdown) {
+  writePendingProfile(import_electron4.app.getPath("userData"), name, from);
+  import_electron4.app.relaunch();
+  void shutdown.request(0);
 }
 function reportFailure(title, error, shutdown) {
   const message = error instanceof Error ? error.stack ?? error.message : String(error);
@@ -3136,7 +3250,7 @@ function runDiagnosticsExport() {
     const home = resolveDshHome();
     const path = await exportDiagnosticsArchive(
       home,
-      collectDiagnosticsFacts(environmentFactsOptions(), (0, import_node_path7.join)(home, "sessions"))
+      collectDiagnosticsFacts(environmentFactsOptions(), (0, import_node_path8.join)(home, "sessions"))
     );
     void import_electron4.dialog.showMessageBox({
       type: "info",
@@ -3167,7 +3281,7 @@ function updateNative() {
     plistBundleVersion: (appPath) => {
       return (0, import_node_child_process3.execFileSync)(
         "plutil",
-        ["-extract", "CFBundleShortVersionString", "raw", "-o", "-", (0, import_node_path7.join)(appPath, "Contents", "Info.plist")],
+        ["-extract", "CFBundleShortVersionString", "raw", "-o", "-", (0, import_node_path8.join)(appPath, "Contents", "Info.plist")],
         { encoding: "utf8" }
       ).trim();
     }

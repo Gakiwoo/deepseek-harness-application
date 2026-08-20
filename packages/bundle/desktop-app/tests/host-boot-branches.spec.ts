@@ -176,6 +176,20 @@ describe('bootDesktopHost optional branches', () => {
       .rejects.toThrow('watch failed')
   })
 
+  it('boots the requested profile name', async () => {
+    await bootDesktopHost({
+      home: '/custom-home',
+      frontendIndexPath: '/frontend/index.html',
+      profile: 'custom',
+    })
+    expect(mocks.loadProfile).toHaveBeenCalledWith('dsh-desktop', 'custom', expect.any(String), '/custom-home')
+  })
+
+  it('boots the shipped desktop profile by default', async () => {
+    await bootDesktopHost({ home: '/home', frontendIndexPath: '/frontend/index.html' })
+    expect(mocks.loadProfile).toHaveBeenCalledWith('dsh-desktop', 'desktop', expect.any(String), '/home')
+  })
+
   it('swallows watcher failure after the loader is removed by disposal', async () => {
     mocks.watchUserPatches.mockImplementationOnce(async () => {
       state.host.services.delete('loader')

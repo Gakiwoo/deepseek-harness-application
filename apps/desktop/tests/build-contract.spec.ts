@@ -128,4 +128,18 @@ describe('desktop build contracts', () => {
     expect(mainSource).toContain('createDesktopUpdater,\n  UPDATE_APPLY_TIMEOUT_MS,')
     expect(mainSource).toContain('state.updater = createDesktopUpdater(updateNative(), {')
   })
+
+  it('resolves the boot profile before recording the launch', () => {
+    expect(mainSource).toContain('const boot = resolveBootProfile(userDataDir, readStartupState(stateFile))')
+    expect(mainSource).toContain('beginStartup(stateFile, randomUUID(), undefined, boot.profile)')
+    expect(mainSource).toContain('profile: boot.profile,')
+    expect(mainSource).toContain('clearPendingProfile(userDataDir)')
+  })
+
+  it('routes tray profile switches through a pending marker and relaunch', () => {
+    expect(mainSource).toContain('switchProfile: (name) => { requestProfileSwitch(name, boot.profile, shutdown) },')
+    expect(mainSource).toContain('profiles: listDesktopProfiles(resolveDshHome(), boot.profile),')
+    expect(mainSource).toContain('writePendingProfile(app.getPath(\'userData\'), name, from)')
+    expect(mainSource).toContain('app.relaunch()')
+  })
 })
