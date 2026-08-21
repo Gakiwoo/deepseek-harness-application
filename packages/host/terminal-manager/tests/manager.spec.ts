@@ -52,7 +52,7 @@ async function harness(config: Config = {}): Promise<{
   ctx: Context
   gateway: TerminalManagerGateway
   handle: FakeHandle
-  spawnTerminal: ReturnType<typeof vi.fn>
+  spawnTerminal: ReturnType<typeof fakeSubprocess>['spawnTerminal']
 }> {
   const ctx = new Context()
   contexts.push(ctx)

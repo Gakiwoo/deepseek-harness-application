@@ -74,7 +74,7 @@ export class TerminalManagerGateway extends TypertRemoteService {
     this.graceMs = config.graceMs ?? 1000
     this.maxBufferBytes = config.maxBufferBytes ?? 1024 * 1024
     ctx.effect(() => () => {
-      for (const session of this.sessions.values()) session.handle.terminate()
+      for (const session of this.sessions.values()) void session.handle.terminate()
     })
   }
 

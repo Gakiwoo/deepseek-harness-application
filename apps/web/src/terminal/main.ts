@@ -47,7 +47,7 @@ const pane: TerminalPane = {
   // The Terminal resizes after a FitAddon.fit(), so the controller learns the
   // resulting cell size from the terminal's own resize event.
   onResize: (listener) => {
-    const disposable = terminal.onResize(({ cols, rows }) => listener(cols, rows))
+    const disposable = terminal.onResize(({ cols, rows }) => { listener(cols, rows) })
     return () => { disposable.dispose() }
   },
   dispose: () => { terminal.dispose() },
