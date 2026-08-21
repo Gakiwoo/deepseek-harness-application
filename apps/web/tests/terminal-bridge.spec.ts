@@ -65,7 +65,7 @@ describe('createTerminalRpc', () => {
     const envelope = JSON.parse(requests[0]?.body ?? '{}') as { type: string; method: string; payload: { args: Record<string, unknown> } }
     expect(envelope.type).toBe('client-request')
     expect(envelope.method).toBe('terminalManager/spawn')
-    expect(envelope.payload.args).toEqual({ rows: 24, cols: 80, cwd: '/tmp' })
+    expect(envelope.payload.args).toEqual({ request: { rows: 24, cols: 80, cwd: '/tmp' } })
   })
 
   it('uses the terminalSignal wire key for signal', async () => {

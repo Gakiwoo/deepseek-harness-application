@@ -69,7 +69,7 @@ export function createTerminalRpc(fetcher: (input: URL, init?: RequestInit) => P
     return full.result.value as T
   }
   return {
-    spawn: (rows, cols, cwd) => call('terminalManager/spawn', { rows, cols, ...cwd === undefined ? {} : { cwd } }),
+    spawn: (rows, cols, cwd) => call('terminalManager/spawn', { request: { rows, cols, ...cwd === undefined ? {} : { cwd } } }),
     write: (sessionId, data) => call('terminalManager/write', { sessionId, data }),
     read: sessionId => call('terminalManager/read', { sessionId }),
     resize: (sessionId, rows, cols) => call('terminalManager/resize', { sessionId, rows, cols }),
