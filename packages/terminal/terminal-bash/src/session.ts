@@ -6,6 +6,7 @@ import type {
   SubprocessTerminalForeground,
   SubprocessTerminalHandle,
 } from '@deepseek-ai/dsh-subprocess'
+import { utf8Tail } from '@deepseek-ai/dsh-output-retention'
 import { TerminalError } from '@deepseek-ai/dsh-terminal'
 import type {
   TerminalBackendSession,
@@ -22,20 +23,6 @@ import type {
 } from '@deepseek-ai/dsh-terminal'
 import type { ResolvedConfig } from './config.ts'
 import { CONTROLLED_PROMPT, TerminalSanitizer } from './sanitize.ts'
-
-function utf8Tail(text: string, maxBytes: number): { text: string; truncated: boolean } {
-  if (Buffer.byteLength(text) <= maxBytes) return { text, truncated: false }
-  const chars = Array.from(text)
-  let bytes = 0
-  let start = chars.length
-  while (start > 0) {
-    const next = Buffer.byteLength(chars[start - 1] as string)
-    if (bytes + next > maxBytes) break
-    bytes += next
-    start -= 1
-  }
-  return { text: chars.slice(start).join(''), truncated: true }
-}
 
 class BoundedTextBuffer {
   private value = ''

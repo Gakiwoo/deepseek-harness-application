@@ -180,6 +180,17 @@ jobs:
           if (( install_status != 0 )); then exit "$install_status"; fi
           exit "$sandbox_status"
 
+      # The plugin loader imports in-box bundles through their package.json
+      # exports (lib/index.js) with a `/* @vite-ignore */` native import
+      # (vendor/loader/src/config/tree.ts), so vitest's tsconfig-paths source
+      # resolution never applies to them. Fresh checkouts have no lib/ (it is
+      # gitignored build output), which fails the desktop profile boot
+      # (host-boot.spec.ts) with "Cannot find module .../lib/index.js" for
+      # every loader entry. Build the lib closure once before the suite —
+      # dev machines and the deployed app always have it built.
+      - name: Build lib outputs
+        run: pnpm run build:lib:host
+
       - name: Run exhaustive coverage
         run: pnpm run check:ci:coverage
 

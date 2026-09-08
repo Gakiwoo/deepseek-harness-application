@@ -10,16 +10,16 @@
 import { RpcId, serverResponseSchema, type ClientRequest } from '@deepseek-ai/dsh-host-apiproxy/api'
 
 /** One signal the user shell's foreground group accepts. */
-export type TerminalSignal = 'SIGINT' | 'SIGTERM' | 'SIGKILL' | 'SIGTSTP' | 'SIGHUP'
+type TerminalSignal = 'SIGINT' | 'SIGTERM' | 'SIGKILL' | 'SIGTSTP' | 'SIGHUP'
 
 /** Spawn result: the opaque session id and the shell pid. */
-export interface TerminalSpawnResult {
+interface TerminalSpawnResult {
   readonly sessionId: string
   readonly pid: number
 }
 
 /** One incremental output read. */
-export interface TerminalReadResult {
+interface TerminalReadResult {
   readonly delta: string
   readonly truncated: boolean
   readonly exited: boolean

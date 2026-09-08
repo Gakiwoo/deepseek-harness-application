@@ -801,6 +801,42 @@ export interface Config {
 
 Source: [`packages/host/frontend-static/src/index.ts:28`](../packages/host/frontend-static/src/index.ts)
 
+<a id="deepseek-aidsh-host-plugin-manager"></a>
+
+## `@deepseek-ai/dsh-host-plugin-manager`
+
+```ts config-catalog
+/** Plugin config: the managed profile and its home. */
+export interface Config {
+  /** The profile name to mutate; the desktop host pins the profile it boots. */
+  profile: string
+  /** Harness home (tests inject a temp dir; a deployment leaves it resolved). */
+  home?: string
+}
+```
+
+Source: [`packages/host/plugin-manager/src/index.ts:49`](../packages/host/plugin-manager/src/index.ts)
+
+<a id="deepseek-aidsh-host-terminal-manager"></a>
+
+## `@deepseek-ai/dsh-host-terminal-manager`
+
+Requires: `subprocess`
+
+```ts config-catalog
+/** Plugin config: the user shell, session cleanup grace, and scrollback cap. */
+export interface Config {
+  /** Shell executable for new sessions; `$SHELL` (Windows: PowerShell) when absent. */
+  shellPath?: string
+  /** TERM-to-KILL cleanup grace in milliseconds for closed sessions. */
+  graceMs?: number
+  /** Per-session output scrollback cap in bytes. */
+  maxBufferBytes?: number
+}
+```
+
+Source: [`packages/host/terminal-manager/src/index.ts:34`](../packages/host/terminal-manager/src/index.ts)
+
 <a id="deepseek-aidsh-host-webserver"></a>
 
 ## `@deepseek-ai/dsh-host-webserver`

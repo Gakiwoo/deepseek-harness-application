@@ -15,6 +15,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type { SubprocessTerminalHandle } from '@deepseek-ai/dsh-subprocess'
 import type { SubprocessTerminalSignal } from '@deepseek-ai/dsh-subprocess/types'
+import { utf8Tail } from '@deepseek-ai/dsh-output-retention'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 // Typert-generated ./typert and ./remote artifacts import Zod at runtime.
 import type {} from 'zod'
@@ -222,27 +223,6 @@ class SessionScrollback {
     this.dropped = false
     return { delta, truncated }
   }
-}
-
-/**
- * Trim `text` to a byte-boundary-safe tail: whole code points, never a split
- * surrogate pair or continuation byte.
- * @param text - the text to trim.
- * @param maxBytes - the retained byte cap.
- * @returns the tail and whether bytes were dropped.
- */
-function utf8Tail(text: string, maxBytes: number): { text: string; truncated: boolean } {
-  if (Buffer.byteLength(text) <= maxBytes) return { text, truncated: false }
-  const chars = Array.from(text)
-  let bytes = 0
-  let start = chars.length
-  while (start > 0) {
-    const next = Buffer.byteLength(chars[start - 1] as string)
-    if (bytes + next > maxBytes) break
-    bytes += next
-    start -= 1
-  }
-  return { text: chars.slice(start).join(''), truncated: true }
 }
 
 export default TerminalManagerGateway
