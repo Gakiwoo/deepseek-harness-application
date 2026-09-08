@@ -190,6 +190,21 @@ describe('bootDesktopHost optional branches', () => {
     expect(mocks.loadProfile).toHaveBeenCalledWith('dsh-desktop', 'desktop', expect.any(String), '/home')
   })
 
+  it('overlays the shipped preset root when the composition row carries no config', async () => {
+    // The shipped desktop patch's agent-presets row always has config, so the
+    // spread fallback (`presetRow.config ?? {}`) only fires for a composition
+    // row that dropped it — the mocked layer exercises that defensive path.
+    state.profilePatches = [{ id: 'agent-presets' }]
+    await bootDesktopHost({ home: '/home', frontendIndexPath: '/frontend/index.html' })
+    const patches = mocks.boot.mock.calls[0]?.[2] as ReadonlyArray<{ id: string; config?: Record<string, unknown> }>
+    // The composition carries the raw row first; the overlay re-appends it with
+    // only the launcher-only shipped preset root.
+    const overlay = patches.filter(row => row.id === 'agent-presets').at(-1)
+    expect(overlay?.config).toEqual({
+      roots: [expect.objectContaining({ trust: 'system' })],
+    })
+  })
+
   it('swallows watcher failure after the loader is removed by disposal', async () => {
     mocks.watchUserPatches.mockImplementationOnce(async () => {
       state.host.services.delete('loader')
