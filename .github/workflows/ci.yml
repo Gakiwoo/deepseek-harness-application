@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    # The default branch is `main`; `master` does not exist, so the old filter
+    # meant CI never ran on a push — only `pull_request` triggered it.
+    branches: [main]
   pull_request:
   workflow_dispatch:
     inputs:
