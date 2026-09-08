@@ -186,10 +186,12 @@ jobs:
       # resolution never applies to them. Fresh checkouts have no lib/ (it is
       # gitignored build output), which fails the desktop profile boot
       # (host-boot.spec.ts) with "Cannot find module .../lib/index.js" for
-      # every loader entry. Build the lib closure once before the suite —
+      # every loader entry. Build the full lib closure — host face for the
+      # plugin tree, client face for the client packages' Node loader entries
+      # (client-connection, client-locale, client-modules, typert-registry);
       # dev machines and the deployed app always have it built.
       - name: Build lib outputs
-        run: pnpm run build:lib:host
+        run: pnpm run build:lib
 
       - name: Run exhaustive coverage
         run: pnpm run check:ci:coverage

@@ -835,7 +835,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/host/terminal-manager/src/index.ts:34`](../packages/host/terminal-manager/src/index.ts)
+Source: [`packages/host/terminal-manager/src/index.ts:35`](../packages/host/terminal-manager/src/index.ts)
 
 <a id="deepseek-aidsh-host-webserver"></a>
 
