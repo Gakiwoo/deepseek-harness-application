@@ -371,7 +371,11 @@ describe('Client Typert API', () => {
     })).rejects.toThrow('scoped method probe/rename is already mounted')
     await expect(ctx.remote.$mount({
       package: '@fixture/service-method-conflict',
-      descriptors: [{ ...context, id: '@fixture/probe#probe/remove', method: 'remove' }],
+      // `unmount` is the namespace service's lifecycle teardown. `install` and
+      // `remove` are NOT reserved — the private installer is `#install`, so
+      // product namespaces can expose `pluginManager/install` and
+      // `pluginManager/remove` (see packages/api/remotes/tests/built-lib.e2e.ts).
+      descriptors: [{ ...context, id: '@fixture/probe#probe/unmount', method: 'unmount' }],
     })).rejects.toThrow('conflicts with its namespace service')
     const scopedService = ctx.get('remote.probe') as unknown as object
     Object.defineProperty(scopedService, 'custom', { configurable: true, value: () => undefined })

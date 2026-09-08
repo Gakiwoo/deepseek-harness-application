@@ -268,7 +268,7 @@ class ClientRemoteService extends Service implements TypertClientRemote {
       throw error
     }
     return async () => {
-      namespace.service.remove('direct', descriptor.method, token)
+      namespace.service.unmount('direct', descriptor.method, token)
       await this.disposeNamespace(descriptor.namespace, namespace)
     }
   }
@@ -286,7 +286,7 @@ class ClientRemoteService extends Service implements TypertClientRemote {
       throw error
     }
     return async () => {
-      namespace.service.remove('scoped', descriptor.method, token)
+      namespace.service.unmount('scoped', descriptor.method, token)
       await this.disposeNamespace(descriptor.namespace, namespace)
     }
   }
@@ -457,16 +457,20 @@ class RemoteNamespaceService extends Service {
   }
 
   installDirect(descriptor: InvocationDescriptor, token: MountToken): void {
-    this.install(descriptor.method, 'direct', { descriptor, token })
+    this.#install(descriptor.method, 'direct', { descriptor, token })
   }
 
   installScoped(descriptor: InvocationDescriptor, projection: ScopedProjection, token: MountToken): void {
-    this.install(descriptor.method, 'scoped', { descriptor, projection, token })
+    this.#install(descriptor.method, 'scoped', { descriptor, projection, token })
   }
 
-  private install(method: string, kind: 'direct', value: DirectMethod): void
-  private install(method: string, kind: 'scoped', value: ScopedMethod): void
-  private install(method: string, kind: 'direct' | 'scoped', value: DirectMethod | ScopedMethod): void {
+  // A true ECMAScript private name, not a prototype member: `#install` can
+  // never be shadowed by the `Object.defineProperty(this, method, ...)` below,
+  // and `method in RemoteNamespaceService.prototype` no longer sees it. That
+  // frees `install` as a legal Remote method name (`pluginManager/install`).
+  // The overload pair collapses to one union signature: ScopedMethod extends
+  // DirectMethod, so both call sites stay type-safe without overloads.
+  #install(method: string, kind: 'direct' | 'scoped', value: DirectMethod | ScopedMethod): void {
     this.assertMethodAvailable(method)
     let record = this.methods.get(method)
     const fresh = record === undefined
@@ -491,7 +495,11 @@ class RemoteNamespaceService extends Service {
     else record.scoped = value as ScopedMethod
   }
 
-  remove(kind: 'direct' | 'scoped', method: string, token: MountToken): void {
+  // `unmount`, not `remove`: `remove` is a natural Remote method name
+  // (`pluginManager/remove`), and a contributed own property named `remove`
+  // would shadow this lifecycle entry point. The rename keeps the framework's
+  // bookkeeping API off the name a product namespace is most likely to want.
+  unmount(kind: 'direct' | 'scoped', method: string, token: MountToken): void {
     const record = this.methods.get(method)
     const current = record?.[kind]
     /* v8 ignore next -- duplicate live variants are rejected before installation, so no newer token can replace this one. */
@@ -504,6 +512,13 @@ class RemoteNamespaceService extends Service {
   }
 }
 
+// Own fields the namespace service always carries. Together with the prototype
+// members (`has`, `empty`, `installDirect`, `installScoped`, `unmount`,
+// `assertMethodAvailable`) these are the names a contributed Remote method may
+// not use. `install` and `remove` are deliberately NOT reserved — the private
+// installer is an ES private name (`#install`) and the lifecycle teardown is
+// `unmount`, so product namespaces can expose `pluginManager/install` and
+// `pluginManager/remove`.
 const REMOTE_NAMESPACE_FIELDS = new Set(['ctx', 'empty', 'invokeRemote', 'methods', 'name', 'namespace'])
 
 function remoteServiceKey(namespace: string): string {
