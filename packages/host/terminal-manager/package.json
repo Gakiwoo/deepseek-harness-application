@@ -2,6 +2,7 @@
   "name": "@deepseek-ai/dsh-host-terminal-manager",
   "description": "Host Remote for user-owned interactive terminals: spawn the user shell through the subprocess seam and stream input/output over typert Remotes",
   "version": "0.1.0-rc.6",
+  "license": "MIT",
   "publishConfig": {
     "access": "public"
   },
@@ -48,6 +49,7 @@
     "lib/typert.remote-client.d.ts"
   ],
   "dependencies": {
+    "@deepseek-ai/dsh-output-retention": "workspace:^",
     "@deepseek-ai/dsh-subprocess": "workspace:^",
     "@deepseek-ai/schemastery": "workspace:^",
     "zod": "^4.4.3"

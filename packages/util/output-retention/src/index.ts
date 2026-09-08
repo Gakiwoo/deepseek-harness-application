@@ -441,3 +441,28 @@ export function formatRetentionNotice(
     .filter(part => part.length > 0)
     .join(' ')
 }
+
+/**
+ * Trim `text` to a byte-boundary-safe tail: whole code points, never a split
+ * surrogate pair or continuation byte. The string-facing sibling of the
+ * byte-stream boundary trimming inside {@link TextRetainer} — callers that
+ * accumulate plain strings (not Uint8Array chunks) but must still cap by
+ * bytes (scrollback buffers, terminal reads) share this helper so every
+ * consumer cuts identically.
+ * @param text - the text to trim.
+ * @param maxBytes - the retained byte cap.
+ * @returns the tail and whether bytes were dropped.
+ */
+export function utf8Tail(text: string, maxBytes: number): { text: string; truncated: boolean } {
+  if (Buffer.byteLength(text) <= maxBytes) return { text, truncated: false }
+  const chars = Array.from(text)
+  let bytes = 0
+  let start = chars.length
+  while (start > 0) {
+    const next = Buffer.byteLength(chars[start - 1] as string)
+    if (bytes + next > maxBytes) break
+    bytes += next
+    start -= 1
+  }
+  return { text: chars.slice(start).join(''), truncated: true }
+}

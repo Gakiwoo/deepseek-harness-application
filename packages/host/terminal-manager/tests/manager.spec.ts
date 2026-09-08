@@ -25,6 +25,7 @@ interface FakeHandle extends SubprocessTerminalHandle {
   signalForeground: Mock<(signal: SubprocessTerminalSignal) => Promise<number>>
   terminate: Mock<() => Promise<void>>
   settle: (outcome: SubprocessOutcome) => void
+  crash: (reason: SubprocessOutcome) => void
 }
 
 function fakeHandle(): FakeHandle {
@@ -40,6 +41,7 @@ function fakeHandle(): FakeHandle {
     signalForeground: vi.fn(async (_signal: SubprocessTerminalSignal) => 4242),
     terminate: vi.fn(async () => {}),
     settle: done.resolve,
+    crash: done.reject,
   }
 }
 
@@ -227,6 +229,58 @@ describe('TerminalManagerGateway', () => {
     const { gateway, spawnTerminal } = await harness()
     await gateway.spawn({ rows: 24, cols: 80 })
     expect(spawnTerminal.mock.calls[0]?.[0]?.graceMs).toBe(1000)
+  })
+
+  it('keeps the config fallbacks for direct construction without schema defaults', async () => {
+    // The plugin schema defaults graceMs/maxBufferBytes before the loader ever
+    // constructs the gateway; the ?? fallbacks only fire on direct
+    // construction, so exercise that path explicitly.
+    const ctx = new Context()
+    contexts.push(ctx)
+    const handle = fakeHandle()
+    const subprocess = fakeSubprocess(handle)
+    ctx.provide('subprocess', subprocess as never)
+    const gateway = new TerminalManagerGateway(ctx, {})
+    const session = await gateway.spawn({ rows: 24, cols: 80 })
+    const spawnSpec = subprocess.spawnTerminal.mock.calls[0]?.[0]
+    expect(spawnSpec?.graceMs).toBe(1000)
+    handle.output.write('a'.repeat(1024 * 1024 + 16))
+    const read = gateway.read(session.sessionId)
+    expect(read.truncated).toBe(true)
+    expect(read.delta.length).toBe(1024 * 1024)
+  })
+
+  it('accepts string chunks from object-mode transports', async () => {
+    const { gateway, handle } = await harness()
+    handle.output = new PassThrough({ objectMode: true })
+    const session = await gateway.spawn({ rows: 24, cols: 80 })
+    handle.output.write('direct string chunk')
+    expect(gateway.read(session.sessionId).delta).toBe('direct string chunk')
+  })
+
+  it('reports exited when done rejects', async () => {
+    const { gateway, handle } = await harness()
+    const session = await gateway.spawn({ rows: 24, cols: 80 })
+    handle.crash({ exitCode: null, signal: 'SIGHUP' })
+    await vi.waitFor(() => {
+      expect(gateway.read(session.sessionId).exited).toBe(true)
+    })
+  })
+
+  it('falls back to the Windows shell default on win32 without SHELL', async () => {
+    const originalShell = process.env.SHELL
+    const originalPlatform = process.platform
+    delete process.env.SHELL
+    Object.defineProperty(process, 'platform', { value: 'win32', configurable: true })
+    try {
+      const { gateway, spawnTerminal } = await harness()
+      await gateway.spawn({ rows: 24, cols: 80 })
+      expect(spawnTerminal.mock.calls[0]?.[0]?.argv).toEqual(['powershell.exe'])
+    } finally {
+      Object.defineProperty(process, 'platform', { value: originalPlatform, configurable: true })
+      if (originalShell === undefined) delete process.env.SHELL
+      else process.env.SHELL = originalShell
+    }
   })
 })
 

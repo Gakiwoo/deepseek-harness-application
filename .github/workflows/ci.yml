@@ -62,13 +62,21 @@ jobs:
   # in-house pool's readiness is re-proven on every master push by the
   # serial-linux-selfhosted standby lane below. The Windows failover switch is
   # the separate DSH_CI_FAILOVER_WINDOWS variable on the windows-native job below.
+  #
+  # The hosted branch used to name the `dsh-ubuntu-24-04-16core` larger-runner
+  # pool. No such pool is configured in this repository (and the in-house
+  # vm-backup pool is not currently registered either), so every PR queued these
+  # three jobs forever and they never reported a conclusion. They now fall back
+  # to `ubuntu-latest`, which hosted runners always satisfy; the concurrency
+  # env below still assumes the larger machine, so expect these lanes to be
+  # slower rather than absent until a real larger pool exists.
   node-24:
     if: github.event_name == 'pull_request'
     runs-on: >-
       ${{ vars.DSH_CI_FAILOVER_LINUX == 'selfhosted'
           && github.event.pull_request.user.login != 'dependabot[bot]'
           && fromJSON('["self-hosted", "linux", "x64", "vm-backup"]')
-          || 'dsh-ubuntu-24-04-16core' }}
+          || 'ubuntu-latest' }}
     name: node 24 / static
     env:
       DSH_GATE_CONCURRENCY: '8'
@@ -120,7 +128,7 @@ jobs:
       ${{ vars.DSH_CI_FAILOVER_LINUX == 'selfhosted'
           && github.event.pull_request.user.login != 'dependabot[bot]'
           && fromJSON('["self-hosted", "linux", "x64", "vm-backup"]')
-          || 'dsh-ubuntu-24-04-16core' }}
+          || 'ubuntu-latest' }}
     name: node 24 / coverage
     env:
       # The hosted 16-core runner uses six coverage workers. The failover pool
@@ -174,6 +182,19 @@ jobs:
           if (( install_status != 0 )); then exit "$install_status"; fi
           exit "$sandbox_status"
 
+      # The plugin loader imports in-box bundles through their package.json
+      # exports (lib/index.js) with a `/* @vite-ignore */` native import
+      # (vendor/loader/src/config/tree.ts), so vitest's tsconfig-paths source
+      # resolution never applies to them. Fresh checkouts have no lib/ (it is
+      # gitignored build output), which fails the desktop profile boot
+      # (host-boot.spec.ts) with "Cannot find module .../lib/index.js" for
+      # every loader entry. Build the full lib closure — host face for the
+      # plugin tree, client face for the client packages' Node loader entries
+      # (client-connection, client-locale, client-modules, typert-registry);
+      # dev machines and the deployed app always have it built.
+      - name: Build lib outputs
+        run: pnpm run build:lib
+
       - name: Run exhaustive coverage
         run: pnpm run check:ci:coverage
 
@@ -183,7 +204,7 @@ jobs:
       ${{ vars.DSH_CI_FAILOVER_LINUX == 'selfhosted'
           && github.event.pull_request.user.login != 'dependabot[bot]'
           && fromJSON('["self-hosted", "linux", "x64", "vm-backup"]')
-          || 'dsh-ubuntu-24-04-16core' }}
+          || 'ubuntu-latest' }}
     name: node 24 / snapshots and artifacts
     env:
       DSH_GATE_CONCURRENCY: '8'

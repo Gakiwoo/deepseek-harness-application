@@ -6,10 +6,10 @@ import { basename, dirname, join } from 'node:path'
 import { compare, valid } from 'semver'
 
 /** GitHub repository publishing DeepSeek Harness desktop releases. */
-export const UPDATE_RELEASE_REPOSITORY = 'Gakiwoo/deepseek-harness-application'
+const UPDATE_RELEASE_REPOSITORY = 'Gakiwoo/deepseek-harness-application'
 
 /** Suffix of the checksum sidecar a release must carry next to each artifact. */
-export const UPDATE_CHECKSUM_SUFFIX = '.sha256'
+const UPDATE_CHECKSUM_SUFFIX = '.sha256'
 
 /** Exit-code budget for applying a staged update during shutdown (a bundle swap is slow). */
 export const UPDATE_APPLY_TIMEOUT_MS = 120_000
@@ -55,10 +55,10 @@ export interface DesktopUpdateAsset {
 }
 
 /** Installer kind of a matched platform artifact. */
-export type DesktopUpdateKind = 'zip' | 'dmg' | 'exe'
+type DesktopUpdateKind = 'zip' | 'dmg' | 'exe'
 
 /** A matched artifact together with the URL of its checksum sidecar. */
-export interface DesktopUpdateArtifact {
+interface DesktopUpdateArtifact {
   /** Artifact file name. */
   readonly name: string
 
@@ -193,7 +193,7 @@ export function versionFromTag(tagName: string): string | undefined {
  * @param arch Current Node.js architecture.
  * @returns The matched artifact, or undefined when the release has none for this platform.
  */
-export function matchArtifact(
+function matchArtifact(
   release: DesktopUpdateRelease,
   platform: NodeJS.Platform,
   arch: string,
@@ -236,7 +236,7 @@ export function matchArtifact(
  * @param repository `owner/repo` pair publishing releases.
  * @returns Releases, newest first.
  */
-export async function fetchReleases(
+async function fetchReleases(
   native: DesktopUpdateNative,
   repository: string,
 ): Promise<DesktopUpdateRelease[]> {

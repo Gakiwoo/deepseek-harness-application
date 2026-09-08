@@ -17,10 +17,10 @@ import { join } from 'node:path'
 import type { StartupState } from './startup-state.ts'
 
 /** The bundle whose patch rows compose the desktop tree (desktopRuntime, clientModules, apiProxy). */
-export const DESKTOP_APP_BUNDLE = '@deepseek-ai/dsh-desktop-app'
+const DESKTOP_APP_BUNDLE = '@deepseek-ai/dsh-desktop-app'
 
 /** The pending-switch marker filename under the Electron user data dir. */
-export const PENDING_PROFILE_FILENAME = 'pending-profile.json'
+const PENDING_PROFILE_FILENAME = 'pending-profile.json'
 
 /** The shipped profile the desktop app boots when no record says otherwise. */
 export const DEFAULT_DESKTOP_PROFILE = 'desktop'
